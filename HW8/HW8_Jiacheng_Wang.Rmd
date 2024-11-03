@@ -1,0 +1,372 @@
+---
+title: 'Lab/HW 8: Optimization; Sampling'
+author: 'Name: Jiacheng Wang'
+date: November 2023
+output: 
+  html_document:
+    toc: TRUE
+number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Continue from Homework 7: Part III – Maximize Likelihood {-}
+
+## Question 1.1 [Done in HW7] {-}
+
+Review Part II. Fit a gamma distribution to the cats’ heart weights by maximum likelihood using `optim()`.
+```{r}
+library(MASS)
+library(numDeriv)
+
+# Define the method of moments function to compute initial parameter estimates
+gamma_params <- function(mean, variance) {
+  a <- mean * mean / variance
+  s <- variance / mean
+  return(list(a = a, s = s))
+}
+```
+
+Calculate initial estimates for the gamma distribution's shape and scale parameters from the sample mean and variance of cats' heart weights.
+```{r}
+mean_val <- mean(cats$Hwt)
+variance_val <- var(cats$Hwt)
+start_params <- gamma_params(mean_val, variance_val)
+```
+
+Write a function that returns a the value of the likelihood that accepts the parameters as a vector rather than two scalars.
+```{r}
+nll_gamma <- function(params, data) {
+  shape <- params[1]
+  scale <- params[2]
+  -sum(log(dgamma(data, shape = shape, scale = scale)))
+}
+```
+
+Use `optim()` to find the gamma distribution's MLEs for cat heart weights and report the log-likelihood.
+```{r}
+# Use optim to find MLE for gamma distribution parameters
+result_optim <- optim(par = start_params, fn = nll_gamma, data = cats$Hwt, method = "BFGS")
+
+# Extract the MLEs from optim
+mle_params <- result_optim$par
+mle_shape <- mle_params[1]
+mle_scale <- mle_params[2]
+
+# Compute the log-likelihood for MLEs from optim
+log_likelihood_mle <- -nll_gamma(mle_params, cats$Hwt)
+
+# Print the results
+cat("Log-Likelihood at MLEs:", log_likelihood_mle, "\n")
+cat("MLE for shape parameter:", mle_params[1], "\n")
+cat("MLE for scale parameter:", mle_params[2], "\n")
+```
+
+Given the small gradient values, it suggests that the MLEs obtained are close to the actual maximum.
+```{r}
+# Compute the gradient at the MLEs
+gradient_at_mle <- grad(func = function(params) nll_gamma(params, cats$Hwt), x = c(mle_shape, mle_scale))
+
+# Print the gradient values
+cat("Gradient for Shape at MLE using optim:", gradient_at_mle[1], "\n")
+cat("Gradient for Scale at MLE using optim:", gradient_at_mle[2], "\n")
+```
+
+The higher log-likelihood value from the `optim()` method compared to the method of moments estimates, which suggests a better fit.
+
+
+## Question 1.2 {-}
+Define the gradient function from class.
+```{r}
+gradient_descent <- function(f, theta0, step_scale, stopping_deriv, max_iter, ...) {
+  theta <- theta0
+  for (i in 1:max_iter) {
+    gradient <- numDeriv::grad(f, theta, ...)
+    if(all(abs(gradient) < stopping_deriv)) {
+      break()
+    }
+    theta <- theta - step_scale * gradient
+  }
+  if (i == max_iter) {
+    warning("Maximal number of iterations reached, convergence not assured")
+  }
+  fit <- 
+    list(
+      argmin = theta,
+      final_gradient = gradient,
+      final_value = f(theta, ...),
+      iterations = i,
+      theta0 = theta0,
+      step_scale = step_scale,
+      stopping_deriv = stopping_deriv
+      )
+  return(fit)
+}
+```
+
+Write a function that returns a the value of the likelihood that accepts the parameters as a vector rather than two scalars.
+```{r}
+nll_vector_form <- function(theta, data) {
+  shape <- theta[1]
+  scale <- theta[2]
+  -sum(log(dgamma(data, shape = shape, scale = scale)))
+}
+```
+
+Use the negative log-likelihood function specific for gradient descent, and initial values derived from the `optim()` function:
+```{r}
+# Setting up data and initial values
+data <- cats$Hwt
+theta0 <- c(mle_shape, mle_scale) 
+
+# Gradient Descent parameters
+step_scale <- 0.0001
+stopping_deriv <- 1e-6
+max_iter <- 10000
+
+# Gradient Descent application
+fit <- gradient_descent(f = function(theta) nll_vector_form(theta, data), 
+                        theta0 = theta0, 
+                        step_scale = step_scale, 
+                        stopping_deriv = stopping_deriv, 
+                        max_iter = max_iter)
+
+# Extract results
+mle_shape_gd <- fit$argmin[1]
+mle_scale_gd <- fit$argmin[2]
+
+# Compute the log-likelihood for MLEs from gradient descent
+log_likelihood_gd <- -nll_vector_form(c(mle_shape_gd, mle_scale_gd), cats$Hwt)
+
+# Print the results
+cat("Log-Likelihood at MLEs using gradient descent:", log_likelihood_gd, "\n")
+cat("MLE for shape parameter using gradient descent:", mle_shape_gd, "\n")
+cat("MLE for scale parameter using gradient descent:", mle_scale_gd, "\n")
+```
+
+1. Compared to method of moments estimates:
+
+- The higher log-likelihood value from the gradient descent method compared to the method of moments estimates, which suggests a better fit.
+
+2. Compared to `optim()`:
+- The log-likelihood values from the gradient descent and optim methods are virtually the same, but there's a minor difference.
+
+## Question 1.3 [Extra Credit] {-}
+Create a dense grid of shape and scale values around the estimates. The dense grid search around the initial estimates did not yield improved results. The optimal values identified from the grid search coincide with the values obtained previously.
+
+```{r}
+# Adjusted log-likelihood function to return positive value
+log_likelihood_gd <- function(theta) {
+  shape <- theta[1]
+  scale <- theta[2]
+  sum(log(dgamma(cats$Hwt, shape = shape, scale = scale)))
+}
+
+# Define a range around the estimates for shape and scale
+shape_range <- seq(mle_shape_gd - 1, mle_shape_gd + 1, by = 0.005)
+scale_range <- seq(mle_scale_gd - 0.075, mle_scale_gd + 0.075, by = 0.0005)
+
+# Initialize variables to store the best log-likelihood and corresponding parameters
+best_log_lik <- -Inf
+best_shape <- NA
+best_scale <- NA
+
+# Loop through the grid and evaluate the log-likelihood for each combination
+for (shape in shape_range) {
+  for (scale in scale_range) {
+    current_log_lik <- log_likelihood_gd(c(shape, scale))
+    if (current_log_lik > best_log_lik) {
+      best_log_lik <- current_log_lik
+      best_shape <- shape
+      best_scale <- scale
+    }
+  }
+}
+
+# Print the results
+cat("Best log-likelihood: ", best_log_lik, "\n")
+cat("Best shape: ", best_shape, "\n")
+cat("Best scale: ", best_scale, "\n")
+```
+
+
+# Visualizing the Gradient Descent algorithm {-}
+
+## Question 2.1 {-}
+
+The `gradient_descent` function implements a gradient descent algorithm that includes an additional logical parameter `visualize`. If `visualize = TRUE`, the function generates a contour plot of the function being optimized along with the successive `theta` values and lines connecting them.
+
+```{r}
+library(mvtnorm)
+
+gradient_descent <- function(f, theta0, step_scale, stopping_deriv, max_iter, visualize=FALSE) {
+  theta <- theta0
+  
+  # Function to approximate the gradient of 'f' at point 'x'
+  grad_approx <- function(f, x, eps=1e-6) {
+    n <- length(x)
+    grad <- numeric(n)
+    for (i in 1:n) {
+      x_eps <- x
+      x_eps[i] <- x_eps[i] + eps
+      grad[i] <- (f(x_eps) - f(x)) / eps
+    }
+    return(grad)
+  }
+  
+  # If visualization is requested, define a function for the contour plot
+  if (visualize) {
+    contour_plot <- function(theta_history) {
+      x <- seq(-4, 4, length.out = 100)
+      y <- seq(-4, 4, length.out = 100)
+      z <- outer(x, y, function(x, y) f(cbind(x, y)))
+      contour(x, y, z)
+      points(theta_history, pch=1, col='blue')
+      for (i in 2:nrow(theta_history)) {
+        segments(theta_history[i-1,1], theta_history[i-1,2], theta_history[i,1], theta_history[i,2], col='blue')
+      }
+    }
+  }
+  
+  # Matrix to keep track of all theta values throughout the iterations
+  theta_history <- matrix(0, nrow = max_iter, ncol = length(theta))
+  for (iter in 1:max_iter) {
+    theta_history[iter, ] <- theta
+    grad <- grad_approx(f, theta)
+    theta <- theta - step_scale * grad
+    if (max(abs(grad)) < stopping_deriv) {
+      theta_history <- theta_history[1:iter, , drop = FALSE]
+      if (visualize) contour_plot(theta_history)
+      return(list(theta=theta, iterations=iter))
+    }
+  }
+  theta_history <- theta_history[1:max_iter, , drop = FALSE]
+  if (visualize) contour_plot(theta_history)
+  warning("Maximal number of iterations reached, convergence not assured")
+  return(list(theta=theta, iterations=max_iter))
+}
+```
+
+Define the function to optimize.
+```{r}
+f <- function(x) {
+  return( - mvtnorm::dmvnorm(x, sigma = matrix(c(2, 1, 1, 1), nrow = 2)) )
+}
+```
+
+When `step_scale` is big, the `theta` values may hover around the minimum point without converging:
+```{r}
+step_scale_too_big <- 
+  gradient_descent(
+    f,
+    theta0 = c(1, 1),
+    step_scale = 15,
+    stopping_deriv = 1e-6,
+    max_iter = 20,
+    visualize = TRUE
+)
+```
+
+When `step_scale` is small, the `theta` values may converge slowly:
+```{r}
+step_scale_too_small <-
+  gradient_descent(
+    f,
+    theta0 = c(1, 1),
+    step_scale = 1,
+    stopping_deriv = 1e-6,
+    max_iter = 20,
+    visualize = TRUE
+)
+```
+
+When `step_scale` is just right, the `theta` values may converge quickly:
+```{r}
+step_scale_quite_right <-
+  gradient_descent(
+    f,
+    theta0 = c(1, 1),
+    step_scale = 5,
+    stopping_deriv = 1e-6,
+    max_iter = 20,
+    visualize = TRUE
+)
+```
+
+
+## Question 2.2 {-}
+Generate 3 interesting visualizations of the convergence of the gradient descent algorithm for a function that is the density of a mixture model of two normal distributions.
+```{r}
+# Define the two bivariate normal distribution density functions
+f1 <- function(x) {
+  mvtnorm::dmvnorm(x, mean = c(-2, 0), sigma = matrix(c(2, 1, 1, 1), nrow = 2))
+}
+
+f2 <- function(x) {
+  mvtnorm::dmvnorm(x, mean = c(2, 0), sigma = matrix(c(2, 1, 1, 1), nrow = 2))
+}
+
+# Define the mixture model density function
+p <- 0.6
+fmix <- function(x) {
+  p * f1(x) + (1 - p) * f2(x)
+}
+```
+
+The contour plot of the mixture model looks exactly like the expected one.
+```{r}
+# Function to plot the contour of the mixture model
+plot_mixture_model_contour <- function() {
+  x <- seq(-3, 3, length.out = 100)
+  y <- seq(-3, 3, length.out = 100)
+  z <- outer(x, y, function(x, y) -fmix(cbind(x, y)))
+  contour(x, y, z)
+}
+
+# Visualize the contour plot of the mixture model
+plot_mixture_model_contour()
+```
+
+
+When `theta0` approaches the minimum of `f2` distribution with a feasible `step_scale`, the `theta` values converge quickly to the minimum of `f2` distribution.
+
+```{r}
+gradient_descent_result <- gradient_descent(
+  function(x)-fmix(x),  
+  theta0 = c(1, 1),  
+  step_scale = 1,  
+  stopping_deriv = 1e-6,  
+  max_iter = 100,  
+  visualize = TRUE  
+)
+```
+
+When `theta0` approaches the minimum of `f1` distribution with a feasible `step_scale`, the `theta` values converge quickly to the minimum of `f1` distribution.
+
+```{r}
+gradient_descent_result <- gradient_descent(
+  function(x)-fmix(x),  
+  theta0 = c(-1, 0),  
+  step_scale = 1,  
+  stopping_deriv = 1e-6,  
+  max_iter = 100,  
+  visualize = TRUE  
+)
+```
+
+When `step_scale` is big, the `theta` values may hover around the two minimum points without converging.
+
+```{r}
+gradient_descent_result <- gradient_descent(
+  function(x)-fmix(x),  
+  theta0 = c(1, 1),  
+  step_scale = 35,  
+  stopping_deriv = 1e-6,  
+  max_iter = 100,  
+  visualize = TRUE  
+)
+```
+
+

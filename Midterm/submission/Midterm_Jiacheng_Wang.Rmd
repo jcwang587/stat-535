@@ -1,0 +1,409 @@
+---
+title: 'Lab/HW 5: Database'
+author: 'Name: Jiacheng Wang'
+date: October 2023
+output: 
+  html_document:
+    toc: TRUE
+number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+“The Code of Honor will be strictly applied as described in The Academic Code of 
+Honor Handbook (https://www.umass.edu/honesty/). I will not give or receive aid
+on this exam. This includes, but is not limited to, viewing the exams of others, 
+sharing answers with others, and making unauthorized use of books or notes while 
+taking the exam. Relying on solutions from other students, whether or not they 
+are currently in the course, constitutes plagiarism. I will not seek help from 
+any person, this exam will reflect only my original work. I acknowledge that 
+failure to abide by the Code of Honor will result in disciplinary action.”
+
+Signature: Jiacheng Wang 
+```{r signature-image, echo=FALSE, out.width='100px', fig.align='middle'}
+knitr::include_graphics("signature.jpg")
+```
+<span style="margin-left: 50px;"></span>
+Date: October 15th, 2023
+
+
+
+# Part I - "Scraping" {-}
+
+```{r}
+library(DBI)
+library(RSQLite)
+library(stringr)
+library(tibble)
+options(max.print = 60)
+```
+
+## 1.1 {-}
+Set up a database connection to the `UMass_tweets.db` file.
+```{r}
+con <- dbConnect(RSQLite::SQLite(), "UMass_tweets.db")
+```
+
+
+## 1.2 {-}
+There is one table, named `Tweets`, in this database. Use a SQL query to show the first 5 records of the table.
+```{r}
+query <- "SELECT * FROM Tweets LIMIT 5"
+result <- dbGetQuery(con, query)
+print(result)
+```
+
+
+## 1.3 {-}
+Use the query `PRAGMA table_info(Tweets)` and `str_replace` to create a named character vector in R that contains the **R data types** of each of the fields as its entries and the field names as the names corresponding names. 
+```{r}
+# Fetch table info
+table_info <- dbGetQuery(con, "PRAGMA table_info(Tweets)")
+
+# Replace SQL data types with R data types
+table_info$type <- str_replace(table_info$type, "INTEGER", "integer")
+table_info$type <- str_replace(table_info$type, "TEXT", "character")
+table_info$type <- str_replace(table_info$type, "REAL", "numeric")
+```
+
+Print the contents of the vector, assign it to a variable named `types`.
+```{r}
+# Create a named vector
+types <- table_info$type
+names(types) <- table_info$name
+
+logical_fields <- c("truncated", "is_quote_status", "favorited", "retweeted", "possibly_sensitive")
+types[logical_fields] <- "logical"
+
+# Print the types vector
+print(types)
+```
+
+
+## 1.4 {-}
+Extract a data frame which is as close as possible to the DB table from the XML file. First, read the contents of the XML file into a dataframe named
+`umass_tweets_xml_raw`.
+```{r}
+umass_tweets_xml_raw <- readLines("umass_tweets_raw.xml")
+```
+
+Secondly, use regular expressions to keep only entries that include actual tweets, save those to `umass_tweets_xml`.
+```{r}
+tweet_pattern <- "<full_text>(.*?)</full_text>"
+tweets_found <- str_extract_all(paste(umass_tweets_xml_raw, collapse = " "), pattern = tweet_pattern)[[1]]
+
+# Remove XML tags to get the actual tweet content
+umass_tweets_xml <- str_replace_all(tweets_found, pattern = "<full_text>|</full_text>", replacement = "")
+```
+
+
+## 1.5 {-}
+Verify that the number of messages is the same in both your XML version and the DB version. Use direct SQL queries to get the number of rows in the database.
+```{r}
+# Number of tweets in the XML data
+xml_tweet_count <- length(umass_tweets_xml)
+
+# Number of tweets in the database
+db_tweet_count <- dbGetQuery(con, "SELECT COUNT(*) FROM Tweets")$`COUNT(*)`
+```
+
+The numbers are both 4938, which are exactly the same. Assign this number as a numeric scalar to a variable called `N`.
+```{r}
+print(xml_tweet_count)
+print(db_tweet_count)
+
+if(xml_tweet_count == db_tweet_count) {
+  N <- xml_tweet_count}
+```
+
+
+## 1.6 {-}
+Write a function called `getXMLfield` which takes a single input, a `named vector` of length one. Specifically, one element of the same one created in Part I Question 3. The input then is a character vector of length one where the R type of data is the element, and its name is a name of a field from the database. The output is a vector that contains the values of the corresponding field variable, cast according to the data type they should have.
+```{r}
+getXMLfield <- function(type_named_vector) {
+  # Extract the name of the field (which is the name of the input vector)
+  field_name <- names(type_named_vector)
+  field_type <- type_named_vector[[1]]  # Get the type from the value
+  
+  tweet_pattern <- "<record>(.*?)</record>"
+  tweets_found <- str_extract_all(paste(umass_tweets_xml_raw, collapse = " "), pattern = tweet_pattern)[[1]]
+  
+  # Use the name to create an XML tag pattern
+  xml_pattern <- paste0("<", field_name, ">(.*?)</", field_name, ">")
+
+  # Initialize the result vector with NAs
+  result <- rep(NA, N)
+  
+  # Extract values between the XML tags using string extraction for each record
+  for(i in 1:N) {
+    record <- tweets_found[i]
+    match <- str_extract(record, pattern = xml_pattern)
+    if(!is.na(match)) {
+      value <- str_replace_all(match, pattern = paste0("<", field_name, ">|</", field_name, ">"), replacement = "")
+      result[i] <- value
+    }
+  }
+  
+  if(field_type == "logical") {
+    result <- ifelse(result == "TRUE", 1L, ifelse(result == "FALSE", 0L, NA))
+  } else if(field_type == "numeric") {
+    result <- as.numeric(result)
+  } else if(field_type == "integer") {
+    result <- as.integer(result)
+  }
+  
+  return(result)
+}
+```
+
+Create a new data frame for the XML data.
+```{r}
+DBfields <- dbListFields(con, "Tweets")
+umass_tweets_xml_df <- as_tibble(matrix(NA, nrow = N, ncol = length(DBfields)))
+colnames(umass_tweets_xml_df) <- DBfields
+```
+
+**Extra credit**: Instead of multiple calls within a `for` loop to `getXMLfield` use a single call using a vectorized notation, here using `sapply` function from the `apply` family.
+```{r}
+umass_tweets_xml_df[] <- sapply(DBfields, function(field) getXMLfield(types[field]))
+```
+
+Write a loop that examines each of the columns of `umass_tweets_xml_df` and compares those to the columns of the Tweets table from the database file.Use SQL queries to obtain the latter, and assign individual columns to local R variables. 
+```{r}
+# Initialize vectors to store fields and the counts of mismatches for each field
+mismatched_fields <- vector("character")
+mismatch_counts <- integer(length(DBfields))  
+names(mismatch_counts) <- DBfields  
+
+for(field in DBfields) {
+  db_data <- dbGetQuery(con, paste("SELECT", field, "FROM Tweets"))[[field]]
+  xml_data <- getXMLfield(types[field])
+  
+  # Compute mismatches for the current field
+  mismatches <- sum(db_data != xml_data, na.rm = TRUE) + 
+                sum(is.na(db_data) & !is.na(xml_data)) + 
+                sum(!is.na(db_data) & is.na(xml_data))
+  mismatch_counts[field] <- mismatches
+  
+  # If there are any mismatches, add field to mismatched_fields vector
+  if (mismatches > 0) {
+    mismatched_fields <- c(mismatched_fields, field)
+  }
+}
+```
+
+As shown by the following output, the two datasets are not exactly the same. I found that 2 of the columns do not perfectly match, which are `full_text` and `source`. By comparing the entries in the two mismatched fields, the field `full_test` has 1709 mismatches and the the field `source` has 4938 mismatches.
+```{r}
+print(mismatched_fields)
+print(mismatch_counts[mismatched_fields])
+```
+
+First compare the mismatched entries in the column that has 4938 mismatches, which is the field `source`.
+```{r}
+# Fetch the source columns
+db_source <- dbGetQuery(con, "SELECT source FROM Tweets")$source
+xml_source <- getXMLfield(types['source'])
+
+# Identify the indices where mismatches occur
+mismatch_indices <- which(db_source != xml_source)
+
+# Print the first few mismatches for analysis
+for(i in head(mismatch_indices)) {
+  cat(paste("DB:", db_source[i], "\n"))
+  cat(paste("XML:", xml_source[i], "\n"))
+  cat("------\n")
+}
+```
+
+Using regular expressions, correct the column `umass_tweets_xml_df` that has 4938 mismatches (field `source`) so that it will be equal to the respective column in the database table. 
+```{r}
+# Convert the HTML encoded angle brackets back to regular angle brackets
+xml_source_corrected <- str_replace_all(xml_source, c(
+  "&lt;" = "<",
+  "&gt;" = ">"
+))
+
+mismatch_indices_after_correction <- which(db_source != xml_source_corrected)
+
+cat("Number of mismatches after correction:", length(mismatch_indices_after_correction), "\n")
+```
+
+Substitute the corrected column for the mismatched one in `umass_tweets_xml_df`.
+```{r}
+umass_tweets_xml_df$source <- xml_source_corrected
+```
+
+Then compare the mismatched entries in the column that has 1709 mismatches, which is the field `full_text`.
+```{r}
+# Fetch the full_text columns
+db_full_text <- dbGetQuery(con, "SELECT full_text FROM Tweets")$full_text
+xml_full_text <- getXMLfield(types['full_text'])
+
+# Identify the indices where mismatches occur
+mismatch_indices <- which(db_full_text != xml_full_text)
+
+# Print the first few mismatches for analysis
+for(i in head(mismatch_indices)) {
+  cat(paste("DB:", db_full_text[i], "\n"))
+  cat(paste("XML:", xml_full_text[i], "\n"))
+  cat("------\n")
+}
+```
+
+**Extra credit**: Copy the column that has 1709 mismatches from the DB table to a local R vector. Using regular expressions, correct this vector so that it is as similar as possible to the respective column from the XML data frame. 
+
+*newline characters*: Textual data from different sources may treat newline characters differently. In XML, newlines might be preserved, while in other systems, they might be removed or altered. Our first step is to ensure that the newline characters (`\n`) in the database column are replaced with spaces, making it consistent with the XML column.
+
+*HTML entity encoding*: Text stored in databases might sometimes have differently encoded HTML entities compared to how they are stored in XML files. For instance, the ampersand character (`&`) might be double-encoded in the database but only singly encoded in the XML. We address this by converting occurrences of `&amp;` in the database column to `&amp;amp;`.
+
+*greater than and less than characters*: Another common issue arises from the encoding of the "greater than" (`>`) and "less than" (`<`) characters. In XML, these are often stored as `&amp;gt;` and `&amp;lt;` respectively. However, in our database column, they appear as `&gt;` and `&lt;`. We'll replace these to match the XML representation.
+
+```{r}
+# Make a copy of the db_full_text for manipulation
+db_full_text_copy <- db_full_text
+
+# Handle newline
+db_full_text_copy <- str_replace_all(db_full_text_copy, "\n", " ")
+
+# Handle double-encoded entities in DB version
+db_full_text_copy <- str_replace_all(db_full_text_copy, "&amp;", "&amp;amp;")
+
+# Correct the '>' and '<' encoding
+db_full_text_copy <- str_replace_all(db_full_text_copy, "&gt;", "&amp;gt;")
+db_full_text_copy <- str_replace_all(db_full_text_copy, "&lt;", "&amp;lt;")
+
+# Re-check for mismatches after corrections
+mismatch_indices_post_correction <- which(db_full_text_copy != xml_full_text)
+
+cat("Number of mismatches after refined correction:", length(mismatch_indices_post_correction), "\n")
+```
+As shown from the result, the differences between the `db_full_text` and `xml_full_text` has been minimized, all the elements of the modified vector are equal to the respective XML column.
+
+
+
+# Part II - Data Manipulations {-}
+
+```{r}
+library(tidyverse)
+```
+
+## 2.1 {-}
+Create a new variable `char_count` inside the data frame that counts the number of characters in a tweet (the `full_text field`), show the lengths of the 5 longest tweets for each of the 4 most common languages in the data (total of 20 entries)
+```{r}
+umass_tweets <- dbReadTable(con, "Tweets")
+
+# Create a new variable that counts the number of characters in a tweet
+umass_tweets <- umass_tweets %>% 
+  mutate(char_count = nchar(full_text))
+
+# Extracting the 4 most common languages
+common_languages <- umass_tweets %>% 
+  group_by(lang) %>% 
+  summarise(count = n()) %>% 
+  arrange(-count) %>% 
+  slice(seq_len(4)) %>% 
+  pull(lang)
+
+# Get 5 longest tweets for each of the 4 most common languages
+longest_tweets <- umass_tweets %>% 
+  filter(lang %in% common_languages) %>% 
+  group_by(lang) %>% 
+  arrange(-char_count) %>% 
+  slice(seq_len(5)) %>%
+  ungroup()
+
+# Display the result
+longest_tweets %>% 
+  select(lang, full_text, char_count)
+```
+
+`char_count_vector` was saved as a standalone variable outside of the data frame.
+
+```{r}
+char_count_vector_longest <- longest_tweets$char_count
+print(char_count_vector_longest)
+```
+
+## 2.2 {-}
+Create a new variable `word_count` inside the data frame that counts the number of words in a Tweet, show the number of words that correspond to the 5 longest tweets for each languages (in terms of characters, from question 1)
+```{r}
+# Create a new variable that counts the number of words in a tweet
+longest_tweets <- longest_tweets %>%
+  mutate(word_count = str_count(full_text, boundary("word")))
+
+# Display the result
+longest_tweets %>% 
+  select(lang, full_text, char_count, word_count)
+```
+
+`word_count_vector` was saved as a standalone variable outside of the data frame.
+
+```{r}
+word_count_vector_longest <- longest_tweets$word_count
+print(word_count_vector_longest)
+```
+
+## 2.3 {-}
+Create a new variable `avg_word_length` inside the data frame that measures the average length of a word in a tweet (that is, for each tweet measure first the number of characters in each word, and average over those). Show the the average number of characters per word for the 5 tweets with the most words for each languages.
+```{r}
+# Create a new variable that measures the average length of a word in a tweet
+longest_tweets <- longest_tweets %>%
+  mutate(avg_word_length = char_count / word_count)
+
+# Display the result
+longest_tweets %>% 
+  select(lang, full_text, char_count, word_count, avg_word_length)
+```
+
+`avg_word_length_vector` was saved as a standalone variable outside of the data frame.
+
+```{r}
+avg_word_length_vector_longest <- longest_tweets$avg_word_length
+print(avg_word_length_vector_longest)
+```
+
+
+## 2.4 {-}
+The two most quoted (retweeted) tweets in the dataset (across all languages) are:
+
+*お茶吹いた https://t.co/hrdbxjTLSK* with 1061 retweets.
+
+*🏳️‍🌈 Special Announcement 🏳️‍🌈\n\nOur game vs. Liberty on October 8 will be #PrideDay 🏳️‍🌈 ‼️\n\n🎟️ + 🧢 Special: https://t.co/H6F8cukvNL\n\n#Flagship 🚩 https://t.co/Fs2YDyLvuZ* with 690 retweets.
+
+```{r}
+# Get the full text of the 2 most quoted tweets in the dataset
+most_retweeted_tweets <- umass_tweets %>%
+  arrange(-retweet_count) %>% 
+  slice(seq_len(2)) %>%
+  select(full_text, retweet_count)
+
+# Display the result
+print(most_retweeted_tweets)
+```
+
+
+## 2.5 {-}
+The two most common hashtags in the dataset are:
+
+*#UMass* with 50 appearances.
+
+*#Flagship* with 45 appearances.
+
+```{r}
+# Extract hashtags
+hashtags <- umass_tweets %>%
+  mutate(hashtags = str_extract_all(full_text, "#[A-Za-z0-9]+")) %>%
+  unnest(hashtags)
+
+# Count and display top two
+top_hashtags <- hashtags %>%
+  group_by(hashtags) %>%
+  summarise(count = n()) %>%
+  arrange(-count) %>%
+  slice(seq_len(2))
+
+# Display the result
+print(top_hashtags)
+```

@@ -1,0 +1,378 @@
+---
+title: 'Lab/HW 2: Basic Data Structures'
+author: 'Name: Jiacheng Wang'
+date: September 2023
+output: 
+  html_document:
+    toc: TRUE
+number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1 Part I {-}
+
+## 1.1 The normal distribution {-}
+We can start by exploring the `rnorm` function with `?rnorm`.
+
+Description: Density, distribution function, quantile function and random generation for the normal distribution with mean equal to mean and standard deviation equal to sd.
+
+Usage: `rnorm(n, mean = 0, sd = 1)`
+
+### Question 1 {-}
+Generate `n = 100` random draws from the standard normal distribution and assign those to the variable `s`.
+```{r}
+s <- rnorm(n=100)
+```
+
+### Question 2 {-}
+Get the type and dimensions of the data that the function takes as input here, which are double and 1, respectively.
+```{r}
+typeof(100)
+length(100)
+```
+
+### Question 3 {-}
+Get the type and dimensions of the data that the function returns, which are double and 100, respectively.
+```{r}
+typeof(s)
+length(s)
+```
+
+### Question 4 {-}
+The `hist` function provides the ability to normalize the histogram so the total area under the histogram is 1. This is accomplished by setting the `freq` parameter to FALSE.
+```{r}
+hist(s, freq=FALSE, main="Default Histogram")
+```
+
+The number of `breaks` can be adjusted to better represent the data. The choice of 30 breaks provides a smoother appearance while not oversmoothing the data.
+```{r}
+hist(s, breaks=30, freq=FALSE, main="Histogram with 30 breaks")
+```
+
+### Question 5 {-}
+```{r}
+# Determine the range
+range_s <- range(s)
+
+# Generate a sequence for x
+x <- seq(from=range_s[1], to=range_s[2], length.out=1000)
+
+# Plot the histogram with added density curve
+hist(s, breaks=30, freq=FALSE, main="Histogram with Normal Density")
+lines(x, dnorm(x), col="red")
+typeof(x)
+typeof(dnorm(x))
+```
+
+For the normal density, the `dnorm` function can provide the necessary values.
+
+The input data type for `dnorm` is double.
+
+The output data type for `dnorm` is double.
+
+The `dnorm` function operates element by element.
+
+### Question 6 {-}
+```{r}
+cdf_s <- pnorm(s)
+hist(cdf_s, main="Histogram of Standard Normal CDF of s", breaks=30)
+```
+
+This distribution appears uniform because when applying the cumulative distribution function (CDF) of a standard normal distribution, it transforms the data to a uniform distribution on [0,1].
+
+### Extra Credit {-}
+Transformation of a random variable through its own CDF will result in a uniform distribution between 0 and 1.
+
+To prove this, consider \( Y = F_X(X) \), where \( F_X \) is the CDF of \( X \). The probability that \( Y \leq y \) is:
+
+\[ P(Y \leq y) = P(F_X(X) \leq y) \]
+
+By definition of the CDF, \( P(X \leq x) = F_X(x) \). So, the above equation becomes:
+
+\[ P(X \leq F_X^{-1}(y)) \]
+
+Which is equivalent to:
+
+\[ F_X(F_X^{-1}(y)) = y \]
+
+Thus, \( Y \) is uniformly distributed on [0,1].
+
+## 1.2 Sampling from the truncated normal distribution {-}
+
+### Question 1 {-}
+Generate `n = 10000` samples from a standard normal random variable and assign those to the variable `s`.
+```{r}
+n <- 10000
+s <- rnorm(n)
+```
+
+### Question 2 {-}
+We're subsetting the vector `s` by using a logical condition that checks if each value in s is greater than or equal to 0.5. This condition produces a logical vector, and when we index `s` with this logical vector, it returns only the values where the condition is `TRUE`. 
+```{r}
+trunc_s <- s[s >= 0.5]
+```
+
+The following functions are used:
+
+Indexing/Subsetting (`[...]`): It's used to retrieve or set a subset of the values stored in an R object. In the command above, we use logical indexing to subset the values of `s`. The input data type is logical and output data type is double.
+
+Logical Comparison (`>=`): This is used to check if each value in the vector `s` is greater than or equal to 0.5. This operation results in a logical vector with `TRUE` where the condition is met and `FALSE` otherwise. The input data type is double and output data type is logical.
+
+```{r}
+typeof(0.5)
+typeof(s >= 0.5)
+typeof(trunc_s)
+```
+
+### Question 3 {-}
+I used Sturges method for breaks as it's a default method in R that generally does a good job for this sample size. For the case with \( n = 10000 \):
+\[ k = \lceil \log_2(10000) + 1 \rceil = \lceil 13.29 + 1 \rceil = 14 \]
+The generated plot also shows that the chosen number of breaks clearly represents the data distribution without oversimplifying or overcomplicating it.
+```{r}
+h <- hist(trunc_s, probability = TRUE, breaks = "Sturges", main = "Histogram of trunc_s with Theoretical Density", xlab = "Value", ylab = "Density")
+print(length(h$breaks))
+```
+
+### Question 4 {-}
+Here, `dnorm` provides the probability density function of the standard normal. `pnorm` provides the cumulative distribution function of the standard normal.
+```{r}
+# Plot a histogram of trunc_s normalized to be a density
+hist(trunc_s, probability = TRUE, breaks = "Sturges", main = "Histogram of trunc_s with Theoretical Density", xlab = "Value", ylab = "Density")
+
+# Compute the theoretical density
+range_vector <- seq(min(trunc_s), max(trunc_s), by = 0.01)
+numerator <- dnorm(range_vector)
+denominator <- 1 - pnorm(0.5)
+theoretical_density <- numerator / denominator
+
+# Add the theoretical density to the histogram
+lines(range_vector, theoretical_density, col = "red")
+```
+
+### Question 5 {-}
+Compute the expected value and standard deviation for the truncated normal distribution based on the theoretical formulas. Here the theoretical SD is NaN, it's because the computation inside the square root goes negative. A square root of a negative number isn't defined in the real numbers. 
+```{r}
+mu <- 0  # for standard normal
+sigma <- 1  # for standard normal
+
+expected_value <- mu + (sigma * (dnorm(0.5) / (1 - pnorm(0.5))))
+theoretical_sd <- sqrt(sigma^2 * (1 - ((0.5 * dnorm(0.5)) / (1 - pnorm(0.5))) - ((dnorm(0.5) / (1 - pnorm(0.5)))^2)))
+
+# Empirical mean and standard deviation of the sample
+empirical_mean <- mean(trunc_s)
+empirical_sd <- sd(trunc_s)
+
+expected_value
+theoretical_sd
+empirical_mean
+empirical_sd
+```
+
+Here, if the variance is negative, we give a warning and adjust by taking its absolute value. Although this isn't a perfect solution, but the final values are near.
+```{r}
+# Calculate components
+phi_a <- dnorm(0.5)
+Phi_a <- pnorm(0.5)
+
+component1 <- 1
+component2 <- (0.5 * phi_a / (1 - Phi_a))
+component3 <- (phi_a / (1 - Phi_a))^2
+
+variance <- sigma^2 * (component1 - component2 - component3)
+
+# If variance is negative, report an issue or handle it.
+if (variance < 0) {
+  warning("Theoretical variance is negative. Adjusting to absolute value.")
+  variance <- abs(variance) 
+}
+
+theoretical_sd_fixed <- sqrt(variance)
+theoretical_sd_fixed
+```
+
+
+### Question 6 {-}
+From the generated line plot, the lines are similar.
+```{r}
+library(truncnorm)
+# Plot the histogram and add the theoretical density and truncated normal density in the same chunk
+hist(trunc_s, probability = TRUE, breaks = 15, main = "Histogram of trunc_s with Theoretical Density", xlab = "Value", ylab = "Density")
+
+# Compute and add the theoretical density to the histogram
+range_vector <- seq(min(trunc_s), max(trunc_s), by = 0.01)
+numerator <- dnorm(range_vector)
+denominator <- 1 - pnorm(0.5)
+theoretical_density <- numerator / denominator
+lines(range_vector, theoretical_density, col = "red")
+
+# Compute and add the density from truncnorm package to the histogram
+density_values <- dtruncnorm(range_vector, a=0.5, mean=0, sd=1)
+lines(range_vector, density_values, col = "blue", lty = 2)
+```
+
+### Question 7 {-}
+From the following 3 ways, the values computed for the truncated normal density and the ones from the package are “the same”.
+```{r}
+check1 <- all.equal(theoretical_density, density_values)
+check2 <- sum((theoretical_density - density_values)^2)
+check3 <- cor(theoretical_density, density_values)
+
+check1
+check2
+check3
+```
+
+### Question 8 {-}
+**Efficiency**: If the truncation point a is far from the mean of the standard normal distribution, a significant portion of the samples will be discarded. This can be particularly problematic if both a lower and upper truncation point are used. More samples must be generated to obtain the desired sample size, leading to inefficiency.
+```{r}
+a <- -2
+s <- rnorm(10000)
+trunc_s <- s[s >= a]
+proportion_discarded <- 1 - (length(trunc_s) / 10000)
+proportion_discarded
+```
+**Dependence on Random Seed**: Like all random processes in computing, the results can vary based on the random seed. If the seed is not set, different runs might yield different results.
+**Bias**: If not enough samples are taken, the resulting truncated sample might not accurately represent the true truncated normal distribution, especially around the truncation points.
+
+### Extra Credit {-}
+By comparing `E_L` (expected length) with `avg_actual_length` (average length from simulations), we can see they are close.
+```{r}
+expected_length <- function(a, n) {
+  n * (1 - pnorm(a))
+}
+
+# Given values
+n <- 10000
+a <- 0.5
+
+# Compute expected length
+E_L <- expected_length(a, n)
+
+# Simulate several times
+simulations <- 100
+actual_lengths <- numeric(simulations)
+
+for (i in 1:simulations) {
+  s <- rnorm(n)
+  trunc_s <- s[s >= a]
+  actual_lengths[i] <- length(trunc_s)
+}
+
+# Compute average actual length
+avg_actual_length <- mean(actual_lengths)
+
+E_L
+avg_actual_length
+```
+   
+# 2 Part II {-}
+
+## 2.1 Syntax and class-typing {-}
+
+### Question 1a {-}
+(1) NON-ERRONEOUS - This command creates a vector named vector1 containing four character strings. There is no error in this command.
+
+(2) NON-ERRONEOUS - This command is trying to get the maximum value from vector1. Since vector1 is a character vector, R will determine the "maximum" based on lexicographic (string-based) ordering, not numeric ordering. This means that the maximum value would be based on the first character of each string in the vector. In the lexicographic ordering: "12" < "32" < "5" < "7" Hence, "7" would be considered the maximum.
+
+(3) NON-ERRONEOUS - This command is trying to sort the values in vector1. Again, because vector1 is a character vector, R will sort it based on lexicographic ordering. The sorted order would be: "12", "32", "5", "7"
+
+(4) ERRONEOUS - This command is trying to sum the values of vector1. This should be an error because you cannot directly sum character strings in R. To sum the values, they would first need to be converted to numeric using something like as.numeric(vector1).
+
+### Question 1b {-}
+(1) NON-ERRONEOUS - This command creates a vector named vector2 containing two numeric values and one character string. In R, vectors are homogeneous, meaning all elements should be of the same type. When you combine different types in a vector, R will coerce the less flexible type to the more flexible type. In this case, numeric is more flexible than character, so all the values in the vector will be coerced to characters. `vector2` will be: `c("5", "7", "12")`
+
+(2) ERRONEOUS - This command is trying to add the second and third elements of vector2. Since both are character strings ("7" and "12"), this operation will produce an error because you cannot perform arithmetic operations directly on character strings.
+
+(3) NON-ERRONEOUS - This command creates a list named list4 with a mix of character strings and numeric values. Lists in R can contain elements of different types without coercion, so there's no error here.
+
+(4) NON-ERRONEOUS - This command is trying to add the second and fourth elements of list4. The [[ operator extracts the element itself from a list. The second element, z2, is 42 (numeric) and the fourth element, z4, is 126 (numeric). The sum of these two numbers is 168.
+
+(5) ERRONEOUS - This command is trying to add the second and fourth elements of list4 using the [ operator. Unlike [[, the [ operator returns the selected elements inside a list. Therefore, list4[2] returns a list with a single element z2=42 and list4[4] returns a list with a single element z4=126. We can't add two lists directly in R in the way that arithmetic addition is typically understood. This operation will produce an error.
+
+## 2.2 Some regression {-}
+
+### Question 2a {-}
+```{r}
+n = 100
+```
+This simply sets a variable n to the value of 100.
+  
+```{r}
+X = rep(1:n, each = 3)
+```
+This generates a sequence of X values.
+
+1:n creates a sequence of numbers from 1 to n (i.e., 1 to 100).
+
+rep() is a function used to replicate elements of vectors or lists.
+
+each = 3 means that each element from 1:n will be repeated 3 times.
+
+Thus, the result is a sequence from 1 to 100 where each number is repeated three times, giving a total of 300 elements.
+
+```{r}
+Y = 0.5 + 2 * X + rnorm(100 * 3)
+```
+This defines Y values.
+
+0.5 + 2 * X is the linear function of X.
+
+rnorm(100 * 3) generates a sequence of 300 random numbers from a standard normal distribution (mean = 0, standard deviation = 1).
+
+These random numbers are added to the linear function to add noise.
+
+### Question 2b {-}
+```{r}
+reg_Y_X = lm(Y ~ X)
+coef(reg_Y_X)
+predict(reg_Y_X)
+```
+i. Corresponding data types:
+
+Y and X are numeric vectors, where X is integer and Y is double.
+
+reg_Y_X is a linear model object (or list), which is the output of the lm() function.
+
+The output of coef(reg_Y_X) is a named numeric vector, with names being the coefficient names and values being the estimated coefficients.
+
+predict(reg_Y_X) outputs a numeric vector containing predicted Y values based on the linear model.
+
+ii. The results make sense regression-wise for the estimated coefficient for X is close to 2 (2.000) and the intercept is close to 0.5 (0.489), as that's how Y was originally defined except for the added noise.
+
+### Question 2c {-}
+`coefficients`: double vector [2] - estimated coefficients.
+
+`residuals`: double vector [300] - residuals from the regression.
+
+`effects`: double vector [300] - orthogonal projections of the design matrix for fitted model.
+
+`rank`: integer - the rank of the fitted model.
+
+`fitted.values`: double vector [300] - predicted values.
+
+`assign`: integer vector [2] - assignment of terms to columns of design matrix.
+
+`qr`: list [5] - QR decomposition information.
+
+`df.residual`: integer - residual degrees of freedom.
+
+`xlevels`: list [0] - level set of the factors.
+
+`call`: language - the matched call.
+
+`terms`: formula - terms object.
+
+`model`: list [300*2] - model frame used.
+
+
+### Question 2d {-}
+the `coef` function extracts the coefficients component from an `lm` object. It provides the estimated coefficients of the regression.
+
+### Extra Credit {-}
+This gives the predicted values of Y based on the linear model, which is the same output as predict(reg_Y_X).
+```{r}
+reg_Y_X$fitted.values
+```

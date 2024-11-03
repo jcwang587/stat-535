@@ -1,0 +1,238 @@
+---
+title: 'Lab/HW 9: Sampling'
+author: 'Name: Jiacheng Wang'
+date: November 2023
+output: 
+  html_document:
+    toc: TRUE
+number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Part I - Discrete Sampling {-}
+
+## Question 1.1 {-}
+
+*Provide a proof that our method of sampling for discrete distributions (finite or infinite) works. I.e. explain why in the samples we generate the probability of a certain outcome, say, 3, is indeed equal to p3 as a result of the sampling algorithm we discussed in class.*
+
+Based on the following codes, we can empirically confirm that the outcome `empirical_p3` is close to the defined `p3`.
+```{r}
+set.seed(123) # for reproducibility
+
+sample_discrete_for <- function(n, P) {
+  P_cum <- cumsum(P)
+  X <- numeric(n)
+  u <- runif(n)
+  
+  for (i in 1:n) {
+    for (j in 1:length(P)) {
+      if (u[i] < P_cum[j]) {
+        X[i] <- j
+        break
+      }
+    }
+  }
+  
+  return(X)
+}
+
+# Assuming a distribution with defined probabilities
+P <- c(1/2, 1/4, 1/8, 1/16, 1/32, 1/32)
+
+# Sample a large number of times
+n_samples <- 100000
+samples <- sample_discrete_for(n_samples, P)
+
+# Calculate the empirical probability of outcome "3"
+empirical_p3 <- sum(samples == 3) / n_samples
+empirical_p3
+```
+
+**Finite Discrete Distributions**
+
+The basic idea in sampling from a finite discrete distribution is to map the probability mass function (PMF) onto a continuous interval, typically [0, 1), and then use a uniformly distributed random number to select an outcome based on this mapping. The reason why this can work is shown as follows:
+
+- Uniform Distribution: The `runif` function in R generates uniformly distributed numbers in the interval [0, 1). This means every number within this interval is equally likely to be chosen.
+
+- Mapping to Discrete Outcomes: By partitioning the [0, 1) interval according to the probabilities of the discrete outcomes, we ensure that the size of each partition is proportional to the probability of the corresponding outcome. 
+
+- Random Sampling: When we randomly sample a number from [0, 1) and check which interval it falls into, the probability of it falling into any particular interval is exactly the same as the probability of the corresponding outcome. This is because the size of the interval is directly proportional to the outcome's probability.
+
+**Infinite Discrete Distributions**
+
+For infinite distributions, we use the cumulative distribution function (CDF) instead of the PMF. The CDF at a point `x` gives the probability that the random variable is less than or equal to `x`. The reason why this can work is shown as follows:
+
+- Cumulative Probability: By incrementally adding probabilities (as done in the `sample_discrete_fn_1 function`), we are essentially constructing a CDF. The point at which the cumulative probability exceeds the random number `u` is the sampled value.
+
+- Uniform Random Number: The use of a uniform random number ensures that the probability of stopping at any particular value `x` is proportional to the probability of the random variable being less than or equal to `x`, as defined by the CDF.
+
+- Numerical Stability: For infinite distributions, using the CDF is numerically more stable than using the PMF, as it avoids issues with very small probabilities and large numbers of outcomes.
+
+Thus, in both finite and infinite cases, the method works because it effectively translates the probabilities of discrete outcomes into proportional intervals of a continuous uniform distribution. By randomly sampling from this uniform distribution, we ensure that the probability of selecting any particular discrete outcome is exactly as defined by its probability in the discrete distribution.
+
+## Question 1.2 {-}
+
+*Generate 10000 draws from the geometric distribution with parameter `p` (do not use the built in function in R. Please use the methods we saw in class for sampling from discrete distributions in general). The geometric distribution counts of the number failures before the first success.*
+
+From the following implementation, `sample_geometric_general` generates `n` samples from a geometric distribution with success probability `p`. The while loop in the function keeps adding the probabilities of each successive trial until the cumulative probability exceeds the random number `u`. The `k - 1` gives the number of failures before the first success.
+
+```{r}
+sample_geometric_general <- function(n, p) {
+  samples <- numeric(n)
+  for (i in 1:n) {
+    u <- runif(1) 
+    cum_prob <- 0  
+    k <- 0      
+
+    while (cum_prob < u) {
+      k <- k + 1
+      cum_prob <- cum_prob + (1 - p)^(k - 1) * p
+    }
+
+    samples[i] <- k - 1  # Number of failures before the first success
+  }
+  return(samples)
+}
+```
+
+Set the probability of success `p` to 0.5 and generate 10000 samples from the geometric distribution.
+
+```{r}
+p <- 0.5
+draws <- sample_geometric_general(10000, p)
+```
+
+## Question 1.3 {-}
+
+*Plot a histogram of your results and add to it a curve for the PMF of the true distribution.*
+
+
+```{r}
+# Plot the histogram
+hist(draws, probability = TRUE, breaks = max(draws) + 1, 
+     col = "lightblue", xlab = "Number of Failures", 
+     main = "Histogram of Geometric Distribution with PMF")
+
+# Calculate and plot the PMF
+max_val <- max(draws)
+pmf_values <- sapply(0:max_val, function(k) (1 - p)^k * p)
+points(0:max_val, pmf_values, type = "o", col = "red", pch = 19)
+
+```
+
+# Part II - Sampling from the Normal Distribution {-}
+## Question 2.1 {-}
+
+*Implement the Box-Muller algorithm (last section of Lecture 9) in a function generating n standard
+normal draws (make sure that you are drawing the minimal required number of uniform values, think
+about modulus and integer part of division). Demonstrate that you got the correct length for your
+output for both odd and even n values.*
+
+This following script defines a function `boxMuller` that takes an integer `n` and returns `n` standard normal draws. The function first calculates the number of pairs of uniform random numbers needed. It then generates these uniform random numbers and applies the Box-Muller transformation to obtain the normal variables. Finally, it combines and trims the list of normal variables to ensure that the length of the output matches the requested `n`.
+
+```{r}
+boxMuller <- function(n) {
+  # Calculate the number of pairs needed
+  numPairs <- ceiling(n / 2)
+
+  # Generate uniform random numbers
+  U <- runif(numPairs)
+  V <- runif(numPairs)
+
+  # Apply the Box-Muller transformation
+  R <- sqrt(-2 * log(U))
+  theta <- 2 * pi * V
+
+  # Generate the normal variates
+  X <- R * cos(theta)
+  Y <- R * sin(theta)
+
+  # Combine and return the required number of variates
+  normals <- c(X, Y)
+  return(normals[1:n])
+}
+```
+
+Test the function for even and odd values of `n`.
+```{r}
+n_even <- 10
+n_odd <- 11
+
+normals_even <- boxMuller(n_even)
+normals_odd <- boxMuller(n_odd)
+
+print(length(normals_even)) # Should be 10
+print(length(normals_odd))  # Should be 11
+```
+
+## Question 2.2 {-}
+
+*Verify that your draws are indeed N(0, 1) by comparing a histogram of the draws to the theoretical
+density and computing mean and sd for a large sample.*
+
+Generate a large sample of random numbers using the `boxMuller` function.
+
+```{r}
+large_sample <- boxMuller(10000)
+```
+
+Compute the mean and standard deviation of this sample. The mean is close to 0 and the standard deviation is close to 1, as expected.
+
+```{r}
+sample_mean <- mean(large_sample)
+sample_sd <- sd(large_sample)
+
+print(paste("Mean:", sample_mean))
+print(paste("Standard Deviation:", sample_sd))
+```
+
+The histogram and the curve are very close, indicating that the sample is indeed from a standard normal distribution.
+
+```{r}
+# Plot histogram and theoretical density
+hist(large_sample, probability = TRUE, breaks = 50, col = "lightblue", 
+     main = "Histogram of Box-Muller Draws", xlab = "Value", ylab = "Density")
+curve(dnorm(x, mean = 0, sd = 1), add = TRUE, col = "red", lwd = 2)
+
+```
+
+## Question 2.3 {-}
+
+*Write a function that calls the previous function and transforms the N(0, 1) draws to N(μ, σ). Test it with a histogram and a curve of the density function.*
+
+The `transformNormal` function first generates standard normal random variables using `boxMuller` and then scales and shifts them to match the desired mean and standard deviation.
+
+```{r}
+transformNormal <- function(n, mu, sigma) {
+  standardNormals <- boxMuller(n)
+  return(mu + sigma * standardNormals)
+}
+```
+
+The mean and standard deviation of the transformed normal variables are close to the desired values of 5 and 2, respectively.
+
+```{r}
+# Test the function
+mu <- 5
+sigma <- 2
+n <- 10000
+
+transformedNormals <- transformNormal(n, mu, sigma)
+
+# Compute mean and standard deviation
+print(paste("Mean:", mean(transformedNormals)))
+print(paste("Standard Deviation:", sd(transformedNormals)))
+```
+
+The histogram of the transformed normal variables is close to the theoretical density curve.
+
+```{r}
+# Plot histogram and theoretical density
+hist(transformedNormals, probability = TRUE, breaks = 50, col = "lightblue", 
+     main = "Histogram of Transformed Normals", xlab = "Value", ylab = "Density")
+curve(dnorm(x, mean = mu, sd = sigma), add = TRUE, col = "red", lwd = 2)
+```
+

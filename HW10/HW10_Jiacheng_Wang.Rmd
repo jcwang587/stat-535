@@ -1,0 +1,348 @@
+---
+title: 'Lab/HW 10: Monte Carlo'
+author: 'Name: Jiacheng Wang'
+date: November 2023
+output: 
+  html_document:
+    toc: TRUE
+number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Part I - Monte Carlo Power Study {-}
+
+## Question a {-}
+Write a function that returns a data frame of 50 rows, where the first column is named smpl and contains the normal draws from both populations, and a second column named pop indicates which population an observation came from (taking values of 1 or 2). The inputs for this function are n1, mean1, sd1, n2, sd2 and true_diff.
+```{r}
+generate_data <- function(n1, mean1, sd1, n2, sd2, true_diff) {
+  # Generate samples for the first population
+  pop1 <- rnorm(n1, mean1, sd1)
+  
+  # Generate samples for the second population
+  pop2 <- rnorm(n2, mean1 + true_diff, sd2)
+
+  # Create a data frame
+  df <- data.frame(
+    smpl = c(pop1, pop2),
+    pop = c(rep(1, n1), rep(2, n2))
+  )
+  
+  return(df)
+}
+
+# Set the parameters
+n1 <- 30; mean1 <- 0; sd1 <- 1
+n2 <- 20; sd2 <- 1.5; true_diff <- 0.5
+
+# Generate the data frame
+data_frame <- generate_data(n1, mean1, sd1, n2, sd2, true_diff)
+head(data_frame)
+```
+
+## Question b {-}
+After running the provided `perform_t_test` function on the generated data frame with an alpha level of 0.05, the function returned `FALSE`. This means that, based on the data generated and under the specified conditions (n1 = 30, mean1 = 0, sd1 = 1, n2 = 20, sd2 = 1.5, true_diff = 0.5), the t-test did not find sufficient evidence to reject the null hypothesis at the 5% significance level. In other words, the t-test did not detect a statistically significant difference between the means of the two populations in this particular instance of the simulation.
+```{r}
+perform_t_test <- function(df, alpha) {
+  # Perform the t-test
+  t_test_result <- t.test(
+    x = df$smpl[df$pop == 1],
+    y = df$smpl[df$pop == 2],
+    conf.level = 1 - alpha
+  )
+  
+  # Determine if the null hypothesis is rejected
+  reject_null <- t_test_result$p.value < alpha
+  return(reject_null)
+}
+
+# Set alpha
+alpha <- 0.05
+
+# Test the function with the generated data frame
+reject_null <- perform_t_test(data_frame, alpha)
+reject_null
+```
+
+## Question c {-}
+Write a function that estimates the power of the t-test for these parameters and this difference in means. That is, the function should take as inputs S, the number of tests to perform (which in this case is the number of Monte Carlo samples), and the parameters n1, mean1, sd1, n2, sd2, true_diff and alpha.
+
+The function will generate S different data frames simulated from the same set of parameters (S = 500 is a reasonable size, but you may increase it for better accuracy). It will test each of those using the t-test and measure the rejection rate for the test. This rate is an estimate of the power for this set of parameters. The function will return a scalar bewteen 0 and 1 which is thee power estimate.
+```{r}
+estimate_power <- function(S, n1, mean1, sd1, n2, sd2, true_diff, alpha) {
+  reject_count <- 0
+  
+  for (i in 1:S) {
+    # Generate a new data frame for each iteration
+    df <- generate_data(n1, mean1, sd1, n2, sd2, true_diff)
+    
+    # Perform the t-test and check if null is rejected
+    if (perform_t_test(df, alpha)) {
+      reject_count <- reject_count + 1
+    }
+  }
+  
+  # Calculate the power as the proportion of rejections
+  power <- reject_count / S
+  return(power)
+}
+```
+
+Estimate the power with our above parameters and S = 2000.
+```{r}
+# Set the parameters
+S <- 2000
+n1 <- 30; mean1 <- 0; sd1 <- 1
+n2 <- 20; sd2 <- 1.5; true_diff <- 0.5
+alpha <- 0.05
+
+# Estimate the power
+power_estimate <- estimate_power(S, n1, mean1, sd1, n2, sd2, true_diff, alpha)
+power_estimate
+```
+
+Check that type-I error is properly controlled with the same mean1, sd1 and sd2. The Type I error rate is slightly below the significance level alpha (0.05). Thus, the Type I error is well-controlled, which means that when the test does indicate a significant difference, there's a high probability that this difference is not just due to random chance.
+```{r}
+# Function to check Type I error
+check_type_I_error <- function(S, n1, mean1, sd1, n2, sd2, alpha) {
+  type_I_error_count <- 0
+  for (i in 1:S) {
+    df <- generate_data(n1, mean1, sd1, n2, sd2, 0)
+    if (perform_t_test(df, alpha)) {
+      type_I_error_count <- type_I_error_count + 1
+    }
+  }
+  type_I_error_rate <- type_I_error_count / S
+  return(type_I_error_rate)
+}
+
+# Check Type I error
+type_I_error_rate <- check_type_I_error(S, n1, mean1, sd1, n2, sd2, alpha)
+print(type_I_error_rate)
+```
+
+## Question d {-}
+Check the power of the test for different levels of true difference in means (take a the following sequence: seq(-2, 2, 0.2) to be the domain of true difference values). For each level of true difference in means record the estimated power and conclude by plotting the estimated power vs. the true difference in means. The following also happened as expected:
+1. as the absolute value of the true difference in means grows, a good test will have more power (rejection rate closer to 1).
+2. since the t-test and the normal distributions are symmetric, we expect the power curve to be symmetric around 0.
+3. Where the difference in means is 0, the power should be below or at alpha.
+```{r}
+# Extended function to perform a full-scale power study
+power_study <- function(S, n1, mean1, sd1, n2, sd2, diff_range, alpha) {
+  power_results <- numeric(length(diff_range))
+  
+  for (i in seq_along(diff_range)) {
+    true_diff <- diff_range[i]
+    power_results[i] <- estimate_power(S, n1, mean1, sd1, n2, sd2, true_diff, alpha)
+  }
+  
+  return(data.frame(true_diff = diff_range, estimated_power = power_results))
+}
+
+# Parameters for the power study
+S <- 1000 # Number of simulations per true difference level
+n1 <- 30; mean1 <- 0; sd1 <- 1
+n2 <- 20; sd2 <- 1.5
+diff_range <- seq(-2, 2, 0.2) # Range of true difference in means
+alpha <- 0.05
+
+# Conduct the power study
+power_study_results <- power_study(S, n1, mean1, sd1, n2, sd2, diff_range, alpha)
+
+# Plot the results
+plot(power_study_results$true_diff, power_study_results$estimated_power, type = "b",
+     xlab = "True Difference in Means", ylab = "Estimated Power",
+     main = "Power Study: Estimated Power vs True Difference in Means")
+```
+
+## Question e {-}
+Analyze the parameters n1, mean1, sd1, n2 and sd2 to influence the power curve. Demonstrate with one power study per parameter (up to 3 parameters), and add the power curve to the previous plot for comparison.
+```{r}
+# Function to plot power curves
+plot_power_curves <- function(original_results, modified_results, param_name) {
+  plot(original_results$true_diff, original_results$estimated_power, type = "b", col = "blue",
+       xlab = "True Difference in Means", ylab = "Estimated Power",
+       main = paste("Power Study with varying", param_name),
+       ylim = range(c(original_results$estimated_power, modified_results$estimated_power)))
+  lines(modified_results$true_diff, modified_results$estimated_power, type = "b", col = "red")
+  legend("topright", legend = c("Original", "Modified"), col = c("blue", "red"), lty = 1)
+}
+
+# Conduct the original power study
+original_power_study_results <- power_study(S, n1, mean1, sd1, n2, sd2, diff_range, alpha)
+```
+
+**Sample Size (n1, n2)**:
+
+Larger sample sizes generally lead to higher power.
+```{r}
+# Varying n1
+n1_modified <- 50 # Increased sample size
+modified_power_study_results_n1 <- power_study(S, n1_modified, mean1, sd1, n2, sd2, diff_range, alpha)
+plot_power_curves(original_power_study_results, modified_power_study_results_n1, "n1")
+```
+
+**Standard Deviation (sd1, sd2)**
+
+Larger standard deviations generally lead to lower power.
+```{r}
+# Varying sd1
+sd1_modified <- 2 # Increased standard deviation
+modified_power_study_results_sd1 <- power_study(S, n1, mean1, sd1_modified, n2, sd2, diff_range, alpha)
+plot_power_curves(original_power_study_results, modified_power_study_results_sd1, "sd1")
+```
+
+**Mean (mean1)**
+
+Changing mean1 while keeping the difference in means constant does not significantly affect the power curve.
+```{r}
+# Varying mean1 (keeping difference constant)
+mean1_modified <- 1 # Shift mean1
+modified_power_study_results_mean1 <- power_study(S, n1, mean1_modified, sd1, n2, sd2, diff_range, alpha)
+plot_power_curves(original_power_study_results, modified_power_study_results_mean1, "mean1")
+
+```
+
+## Question f {-}
+Try using gamma distributions with different shape and scale parameters instead of the normal distributions and assess the effect of this misspecification on the power. You should specify shape1, scale1 and shape2 in an analogous fashion to the normal samples. You should also have a true_diff value for difference in means. However, since the mean of the gamma distribution is equal to shape * scale, the scale2 parameter cannot be computed simply by adding true_diff to scale1. You need to figure out how the difference in means translates to a difference in scales.
+
+In the gamma distribution, the mean is given by the product of its shape and scale parameters. So, if we want to simulate two gamma distributions with a specified difference in means (`true_diff`), we need to adjust either the shape or the scale parameter accordingly.
+
+```{r}
+# Function to generate data from gamma distributions
+generate_gamma_data <- function(n1, shape1, scale1, n2, shape2, true_diff) {
+  # Calculate scale2 to achieve the desired true_diff
+  mean1 <- shape1 * scale1
+  scale2 <- (mean1 + true_diff) / shape2
+
+  # Generate samples from gamma distributions
+  pop1 <- rgamma(n1, shape1, scale1)
+  pop2 <- rgamma(n2, shape2, scale2)
+  df <- data.frame(smpl = c(pop1, pop2), pop = c(rep(1, n1), rep(2, n2)))
+  return(df)
+}
+
+# Adjust the power study function to use gamma data
+gamma_power_study <- function(S, n1, shape1, scale1, n2, shape2, diff_range, alpha) {
+  power_results <- numeric(length(diff_range))
+  
+  for (i in seq_along(diff_range)) {
+    true_diff <- diff_range[i]
+    df <- generate_gamma_data(n1, shape1, scale1, n2, shape2, true_diff)
+    power_results[i] <- estimate_power(S, n1, mean1, sd1, n2, sd2, true_diff, alpha)
+  }
+  
+  return(data.frame(true_diff = diff_range, estimated_power = power_results))
+}
+
+# Parameters for gamma distribution
+shape1 <- 2; scale1 <- 1
+shape2 <- 2
+
+# Conduct the gamma power study
+gamma_power_study_results <- gamma_power_study(S, n1, shape1, scale1, n2, shape2, diff_range, alpha)
+
+# Plot the gamma power study results
+plot(gamma_power_study_results$true_diff, gamma_power_study_results$estimated_power, type = "b", 
+     xlab = "True Difference in Means", ylab = "Estimated Power",
+     main = "Power Study with Gamma Distributions")
+```
+
+# Part II - Monte Carlo - Integration {-}
+
+## Question 1.a {-}
+```{r}
+# Function to integrate
+integrand_1a <- function(x) {
+  return(cos(x * (2 - x)) / (3 - x^2 + x^(1/3)))
+}
+
+# Monte Carlo integration
+monte_carlo_integration_1a <- function(f, a, b, samples=10000) {
+  # Generate random samples
+  x_random <- runif(samples, a, b)
+  y_random <- sapply(x_random, f)
+  
+  # Estimate the integral
+  integral_estimate <- (b - a) * mean(y_random)
+  # Estimate the standard error
+  standard_error <- (b - a) * sd(y_random) / sqrt(samples)
+  
+  return(c(integral_estimate, standard_error))
+}
+
+# Performing the Monte Carlo Integration for the given function
+a <- 0 # Lower limit of integration
+b <- 2 # Upper limit of integration
+mc_result <- monte_carlo_integration_1a(integrand_1a, a, b)
+
+# Printing the results
+cat("The estimated value of the integral is:", mc_result[1], "\n")
+cat("The estimated standard error is:", mc_result[2], "\n")
+
+
+```
+
+## Question 1.b {-}
+As show below, the estimate value using quadrature integration is comparable to the estimate value using Monte Carlo integration. 
+```{r}
+# Using quadrature integration
+quad_result <- integrate(integrand_1a, a, b)
+
+# Printing the results
+cat("Estimate value using Monte Carlo integration:", mc_result[1], "\n")
+cat("Estimate value using quadrature integration:", quad_result$value, "\n")
+```
+
+## Question 2.a {-}
+```{r}
+# Function to integrate for 2a
+integrand_2a <- function(x) {
+  return(x^4 * exp(-x/4) / (1 + x^2 + sqrt(x)))
+}
+
+# Monte Carlo integration function for 2a
+monte_carlo_integration_2a <- function(f, samples=10000) {
+  # Since the upper limit is infinity, we use importance sampling
+  # We'll use the exponential distribution as the importance function
+  # The rate parameter for the exponential distribution
+  lambda_exp <- 1/4
+  
+  # Generate samples from the exponential distribution
+  x_random <- rexp(samples, rate=lambda_exp)
+  
+  # Evaluate the integrand function at the sampled points
+  y_values <- f(x_random)
+  
+  # The weights are the PDF of the exponential distribution evaluated at the sampled points
+  weights <- dexp(x_random, rate=lambda_exp)
+  
+  # Compute the weighted average of the function values
+  integral_estimate <- mean(y_values / weights)
+  # Compute the standard error
+  standard_error <- sd(y_values / weights) / sqrt(samples)
+  
+  return(c(integral_estimate, standard_error))
+}
+
+# Perform the Monte Carlo Integration for the given function
+mc_results <- monte_carlo_integration_2a(integrand_2a)
+
+# Print the results
+cat("The estimated value of the integral is:", mc_results[1], "\n")
+cat("The estimated standard error is:", mc_results[2], "\n")
+```
+
+## Question 2.b {-}
+As shown below, the estimate value using quadrature integration is comparable to the estimate value using Monte Carlo integration.
+```{r}
+# Using quadrature integration
+quad_results <- integrate(integrand_2a, lower=0, upper=Inf)
+
+# Print the results
+cat("Estimate value using Monte Carlo integration:", mc_results[1], "\n")
+cat("Estimate value using quadrature integration:", quad_results$value, "\n")
+```
+

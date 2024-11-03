@@ -1,0 +1,145 @@
+---
+title: 'Lab/HW 6: ggplot2; factors'
+author: 'Name: Jiacheng Wang'
+date: October 2023
+output: 
+  html_document:
+    toc: TRUE
+number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Question 1 {-}
+
+```{r}
+library(ggplot2)
+dat <- read.csv("EconomistData.csv")
+```
+
+• Create a scatter plot with CPI on the x axis and HDI on the y axis.
+```{r}
+ggplot(dat, aes(x = CPI, y = HDI)) + geom_point()
+```
+
+• Color the points in the plot blue.
+```{r}
+ggplot(dat, aes(x = CPI, y = HDI)) + geom_point(color = "blue")
+```
+
+• Color the points in the plot according to Region.
+```{r}
+ggplot(dat, aes(x = CPI, y = HDI)) + geom_point(aes(color = Region))
+```
+
+• Make the points bigger by setting the size to 2.
+```{r}
+ggplot(dat, aes(x = CPI, y = HDI)) + geom_point(aes(color = Region), size = 2)
+```
+
+• Make the points bigger by setting the size to HDI rank.
+```{r}
+ggplot(dat, aes(x = CPI, y = HDI)) + geom_point(aes(color = Region, size = HDI.Rank))
+```
+
+• Create boxplots of CPI by Region.
+```{r}
+ggplot(dat, aes(x = Region, y = CPI)) + geom_boxplot()
+```
+
+• Overlay jittered points on top of the box plots.
+
+I also applied parameters to `geom_boxplot` using `outlier.shape = NA` to prevent displaying the outliers twice.
+```{r}
+ggplot(dat, aes(x = Region, y = CPI)) + geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(width = 0.2, aes(color = Region))
+```
+
+
+# Question 2 {-}
+Re-create a scatter plot with CPI on the x axis and HDI on the y axis (as you did in the previous exercise).
+
+• Overlay a smoothing line on top of the scatter plot using the default method.
+```{r}
+ggplot(dat, aes(x = CPI, y = HDI)) + geom_point() + stat_smooth()
+```
+
+• Overlay a smoothing line on top of the scatter plot using the lm method (based on linear regression).
+```{r}
+ggplot(dat, aes(x = CPI, y = HDI)) + geom_point() + 
+  stat_smooth(method = "lm")
+```
+
+• Overlay a smoothing line on top of the scatter plot using the loess (locally weighted smoothing) method, but make it less smooth.
+
+To make the loess curve less smooth, we reduced the `span` to 0.3, which is below the default 0.75, thereby decreasing the degree of smoothing.
+```{r}
+ggplot(dat, aes(x = CPI, y = HDI)) + geom_point() + 
+  stat_smooth(method = "loess", span = 0.3)
+```
+
+
+# Question 3 {-}
+The `mtcars` dataset, containing various car attributes, is suitable for this question and has more than 10 variables.
+```{r}
+length(names(mtcars))
+```
+
+Here we are going to explore an interesting relationship between the following four variables: miles per gallon (mpg), number of cylinders (cyl), horsepower (hp), and weight (wt). We can create a scatter plot with mpg on the y-axis and hp on the x-axis, color the points by the number of cylinders (cyl), and size the points by weight (wt). 
+
+The plot primarily shows the relationship between horsepower (hp) and miles per gallon (mpg), which is often inversely related in cars. As horsepower increases, the miles per gallon typically decrease because more powerful engines tend to consume more fuel.
+
+Coloring the points by the number of cylinders provides additional context. Typically, cars with more cylinders have higher horsepower and lower mpg because they are larger and more powerful engines. By differentiating the colors by cylinder number, we can see if this trend holds true for the cars in this dataset.
+
+The size of the points, mapped to weight, adds another layer of information. Heavier cars tend to have larger engines with more cylinders, and they also tend to be less fuel efficient. By sizing points by weight, we can visually confirm if heavier cars in the dataset generally have lower mpg.
+
+I chose these aesthetic mappings and faceting methods to provide a multi-dimensional view of the data, revealing how mpg, horsepower, weight, and the number of cylinders interact. By layering these variables in one plot, we can see their interplay and identify patterns or anomalies that might not be evident when looking at each variable in isolation.
+
+```{r}
+ggplot(mtcars, aes(x = hp, y = mpg, color = as.factor(cyl), size = wt)) +
+  geom_point(alpha = 0.7) + facet_wrap(~cyl) +
+  labs(title = "Relationship between MPG, Horsepower, Weight, and Cylinders",
+       x = "Horsepower",
+       y = "Miles per Gallon",
+       color = "Number of Cylinders") +
+  theme_minimal()
+```
+
+# Question 4 {-}
+```{r}
+library(forcats)
+library(dplyr)
+```
+
+This code filters the `gss_cat` dataset to specific party responses. It then classifies the `partyid` variable into a simpler `party_simple` variable with three categories: Republican, Democrat, and Independent. The data is then grouped by year and the count of each political affiliation is calculated. Finally, the proportion of each political affiliation for each year is computed.
+```{r}
+pol_affiliation <- gss_cat %>%
+  filter(!partyid %in% c("No answer", "Don't know", "Other party")) %>%
+  mutate(party_simple = recode(partyid,
+                               'Strong republican' = 'Republican',
+                               'Not str republican' = 'Republican',
+                               'Ind,near rep' = 'Independent',
+                               'Ind,near dem' = 'Independent',
+                               'Not str democrat' = 'Democrat',
+                               'Strong democrat' = 'Democrat')) %>%
+  count(year, party_simple) %>%
+  group_by(year) %>%
+  mutate(proportion = n / sum(n)) %>%
+  ungroup()
+```
+
+This plot will show how the proportions of people identifying as Democrat, Republican, and Independent changed over the years in the `gss_cat` dataset.
+
+```{r}
+ggplot(pol_affiliation, aes(x = year, y = proportion, color = party_simple)) +
+  geom_line() +
+  labs(title = "Proportions of Political Affiliations Over Time",
+       x = "Year",
+       y = "Proportion",
+       color = "Political Affiliation") +
+  theme_minimal()
+```
+
+

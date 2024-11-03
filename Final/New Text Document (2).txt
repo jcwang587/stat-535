@@ -1,0 +1,15 @@
+7. The work was presented clear, cover the course materials and get explained everthing clearly. The slides looks pretty nice and I really like their visualization and color pallete.
+
+4. The data scraping part and constrained optimization is interesing. Mostly during the presentation is clear and covers the course knowledge. A suggestion may be trimmed the information a little for some slides.
+
+5. The introduction about the data source is very clear. The information from the slides is clean in short phrase which is very nice. Also they did a lot of analysis for the temperature data.
+
+1. The slides is clear and informative. The presentation is also very clear and easy to follow and understand. The analysis combining positive and negative words from opinion lexicon is also very innovative.
+
+3. Apply several analysis and predictor methods on the movie dataset and explain clearly. Better apply more Boostraping or monte carlo method in analysis.
+
+6. Did a great job on analyzing the dataset and generate interesting conlusion. May could be better practice for the presentation which could better with better fluency.
+ 
+
+
+

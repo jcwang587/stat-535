@@ -1,0 +1,16 @@
+So, other than the data we mentioned previously got from kaggle. We are also interested in the view count and like count of the songs through YouTube. So here we apply the YouTube API which is available in Google Cloud or Google developer Console to scrap those information from the YouTube.
+
+And the first thing needed is a query string. It contains several parameters that define what information you're asking for from the API. You can refer to the document which is available from the YouTube API as shown in the right handside. And also you definitely need you own credential, which is the API key that is free to apply but with a limitation times for using from Google Cloud.
+***********************************************************************************************
+And here we are going to quick introduce the libraries we used for web scraping.
+
+There are also two json related io functions so that we can load the information from the content and export for further analysis.
+
+***********************************************************************************************
+Pound sign
+
+***********************************************************************************************
+So, we log-transformed the raw view count for all the following analyses step.
+
+***********************************************************************************************
+URL encoding is necessary because URLs can only be sent over the Internet using the ASCII character-set.

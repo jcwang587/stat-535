@@ -1,0 +1,247 @@
+---
+title: 'Lab/HW 3: Lists, Data Frames, Functions'
+author: 'Name: Jiacheng Wang'
+date: September 2023
+output: 
+  html_document:
+    toc: TRUE
+number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1 Part I Lists, apply functions {-}
+
+## 1.1 {-}
+```{r}
+sequence <- 1:500
+random_draws  <- lapply(sequence, rnorm)
+```
+
+**Input**: The input to the `lapply` function consists of two main parts. The first part is the `sequence`, which is a vector of numbers from 1 to 500. The second part is the function `rnorm`, which is a built-in R function that generates random draws from a standard normal distribution.
+
+**Output**: The output of `lapply` in this context is a list named `random_draws`. This list has 500 elements, where the ith element of the list contains i random numbers drawn from a standard normal distribution.
+
+**What the function does**: The `lapply` function is taking each value in the `sequence` (from 1 to 500) and is applying the `rnorm` function on each of those values. Essentially, for the first value (1), `rnorm` is generating 1 random number. For the second value (2), `rnorm` is generating 2 random numbers, and so on. All of these sets of random numbers are stored as individual elements within the `random_draws` list.
+
+## 1.2 {-}
+```{r}
+means_vector <- sapply(random_draws, mean)
+```
+
+**Input**: The main input to the `sapply` function is the list `random_draws`, which contains sets of random numbers drawn from a standard normal distribution. The second input is the function mean, which calculates the arithmetic mean of a set of numbers.
+
+**Output**: The output of `sapply` in this context is a vector named `means_vector`. This vector has 500 elements, where the ith element is the mean of the ith set of random numbers from the `random_draws` list.
+
+**What the function does**: The `sapply` function is iterating over each set of random numbers in the `random_draws` list and calculating their mean using the `mean` function. Unlike `lapply` which would return a list, `sapply` tries to simplify the output if possible. In this case, since we are computing means for each set, the output is simplified to a vector. So, the first element of `means_vector` is the mean of the first set of random numbers in `random_draws`, the second element of `means_vector` is the mean of the second set of random numbers, and so on.
+
+
+## 1.3 {-}
+```{r}
+plot(sequence, means_vector, type = "l")
+abline(h = 0, col = "red")
+```
+
+
+# 2 Part II Data Frames {-}
+
+## 2.1 {-}
+```{r}
+library(MASS)
+data(Cars93)
+summary(Cars93)
+```
+We can not directly see the total number of rows. Bur we can get the number of rows is to use the `nrow()` function, and the result is 93.
+```{r}
+nrow(Cars93)
+```
+
+## 2.2 {-}
+```{r}
+rear_wheel_cars <- subset(Cars93, DriveTrain == "Rear")
+mean_price_rear <- mean(rear_wheel_cars$Price, na.rm = TRUE)
+print(mean_price_rear)
+```
+The mean price of a car with a rear-wheel drive train is 28.95.
+
+## 2.3 {-}
+```{r}
+seven_passenger_cars <- subset(Cars93, Passengers == 7)
+min_horsepower_7 <- min(seven_passenger_cars$Horsepower, na.rm = TRUE)
+print(min_horsepower_7)
+```
+The minimum horsepower of all cars with capacity for 7 passengers is 109.
+
+```{r}
+six_or_more_passenger_cars <- subset(Cars93, Passengers >= 6)
+min_horsepower_6_or_more <- min(six_or_more_passenger_cars$Horsepower, na.rm = TRUE)
+print(min_horsepower_6_or_more)
+```
+The minimum horsepower of all cars with a capacity of at least 6 passengers is 100.
+
+## 2.4 {-}
+```{r}
+Cars93$HighwayDistance <- Cars93$MPG.highway * Cars93$Fuel.tank.capacity
+max_distance_car <- Cars93[Cars93$HighwayDistance == max(Cars93$HighwayDistance, na.rm = TRUE), ]
+min_distance_car <- Cars93[Cars93$HighwayDistance == min(Cars93$HighwayDistance, na.rm = TRUE), ]
+median_distance <- median(Cars93$HighwayDistance, na.rm = TRUE)
+median_distance_car <- Cars93[abs(Cars93$HighwayDistance - median_distance) < 1e-9, ]
+print(max_distance_car[, c("Manufacturer", "Model")])
+print(min_distance_car[, c("Manufacturer", "Model")])
+print(median_distance_car[, c("Manufacturer", "Model")])
+```
+The cars that have the maximum, minimum and median distance one can travel for highway driving are BMW 535i, Mercury Capri and Mazda MPV, respectively.
+
+To determine the distance a car can travel for highway driving based on its fuel efficiency, we need to consider fuel efficiency, which tells us how many miles the car can travel on a single gallon of fuel and fuel tank capacity which tells us how many gallons of fuel the car can hold when the tank is full.
+
+To calculate the maximum distance a car can travel on a full tank for highway driving, we would multiply its mpg rating for highway driving by its fuel tank capacity. From the `Cars93` dataset, the two columns that provide this information are `MPG.highway` and `Fuel.tank.capacity`. By multiplying the values in these two columns for each car, we can determine the distance each car can travel on a full tank during highway driving. This distance is the product of the car's fuel efficiency and its fuel tank capacity.
+
+# 3 Part III Functions {-}
+
+```{r}
+library(microbenchmark)
+library(truncnorm)
+```
+
+## 3.1a {-}
+```{r}
+truncated_normal_sample_1 <- function(n, mu, sd, a, b) {
+    sample <- vector("numeric", n)
+    count <- 1
+    while(count <= n) {
+        draw <- rnorm(1, mu, sd)
+        if(draw >= a && draw <= b) {
+            sample[count] <- draw
+            count <- count + 1
+        }
+    }
+    return(sample)
+}
+```
+
+
+## 3.1b {-}
+```{r}
+# Generate sample
+tn_sample <- truncated_normal_sample_1(10000, mu = -0.1, sd = 1.1, a = 0.5, b = 3)
+length(tn_sample)
+
+# Plotting
+hist(tn_sample, breaks = 100, freq = FALSE, xlab = "Value", ylab = "Density")
+curve(truncnorm::dtruncnorm(x, a = 0.5, b = 3, mean = -0.1, sd = 1.1), from = 0.5, to = 3, add = TRUE, col = "red", lwd = 2)
+```
+
+## 3.2a {-}
+```{r}
+truncated_normal_sample_2 <- function(n, mu, sd, a, b) {
+  N_approximate <- floor(n / (pnorm(b, mean = mu, sd = sd) - pnorm(a, mean = mu, sd = sd)))
+  
+  norm_samples <- rnorm(N_approximate, mean = mu, sd = sd)
+  trunc_samples_temp <- norm_samples[norm_samples >= a & norm_samples <= b]
+  
+  n_collected <- length(trunc_samples_temp)
+  
+  if (n_collected >= n) {
+    sample <- trunc_samples_temp[1:n]
+  } else {
+    additional_samples <- truncated_normal_sample_1(n - n_collected, mu, sd, a, b)
+    sample <- c(trunc_samples_temp, additional_samples)
+  }
+  
+  return(sample)
+}
+```
+
+
+## 3.2b {-}
+```{r}
+# Generate sample
+tn_sample_batch <- truncated_normal_sample_2(10000, mu = -0.1, sd = 1.1, a = 0.5, b = 3)
+length(tn_sample_batch)
+
+# Plotting
+hist(tn_sample_batch, breaks = 100, freq = FALSE, xlab = "Value", ylab = "Density")
+curve(truncnorm::dtruncnorm(x, a = 0.5, b = 3, mean = -0.1, sd = 1.1), from = 0.5, to = 3, add = TRUE, col = "red", lwd = 2)
+
+```
+
+No, we don't expect the samples generated by `truncated_normal_sample_1` (3.1a) to be point-wise the same as those generated by `truncated_normal_sample_2` (3.2a). 
+
+**Point-wise Similarity**: Due to the inherent randomness of drawing from the normal distribution, the exact sequence of numbers will be different between runs unless the random seed is set to the same value for both methods. Even with the same seed, because the methods sample differently, the sequences would differ.
+
+**Distributional Similarity**: However, both methods aim to sample from the same truncated normal distribution. Therefore, in a distributional sense, the histograms or density plots for both methods look similar.
+
+## 3.3a {-}
+```{r}
+mu <- -0.1
+sd <- 1.1
+a <- 0.5
+b <- 3
+
+benchmark_results <- microbenchmark(
+  truncated_normal_sample_1(10000, mu, sd, a, b),
+  truncated_normal_sample_2(10000, mu, sd, a, b),
+  rtruncnorm(10000, a = a, b = b, mean = mu, sd = sd),
+  times = 100
+)
+
+print(benchmark_results)
+```
+From the comparison, the `rtuncnorm` function is the fastest, and the `truncated_normal_sample_1` (3.1a) function is the slowest.
+
+```{r}
+summary(benchmark_results)$median[1] / summary(benchmark_results)$median[3]
+summary(benchmark_results)$median[2] / summary(benchmark_results)$median[3]
+summary(benchmark_results)$median[2] / summary(benchmark_results)$median[1]
+summary(benchmark_results)$median[3] / summary(benchmark_results)$median[1]
+```
+The `rtuncnorm` function is the fastest, being nearly 36 times faster than the `truncated_normal_sample_1` (3.1a) function and slightly over about 10% faster than the `truncated_normal_sample_2` (3.2a) function. The `truncated_normal_sample_1` (3.1a) function is only about 3% as fast as the `rtuncnorm` function and `truncated_normal_sample_2` (3.2a).
+
+## 3.3b {-}
+```{r}
+sample_sizes <- c(100, 400, 700, 1000, 4000, 7000, 10000)
+
+medians <- matrix(0, nrow = 3, ncol = length(sample_sizes))
+
+for (i in 1:length(sample_sizes)) {
+  benchmark_result <- microbenchmark(
+    method1 = truncated_normal_sample_1(sample_sizes[i], mu, sd, a, b),
+    method2 = truncated_normal_sample_2(sample_sizes[i], mu, sd, a, b),
+    rtruncnorm = truncnorm::rtruncnorm(sample_sizes[i], a = a, b = b, mean = mu, sd = sd),
+    times = 100,
+    unit = "ms"
+  )
+  medians[, i] <- summary(benchmark_result)$median
+}
+
+# Plot
+colors <- c("black", "red", "blue")
+labels <- c("truncated_normal_sample_1", "truncated_normal_sample_2", "rtruncnorm")
+plot(sample_sizes, medians[1, ], ylim = range(medians), type = "b", col = colors[1], xlab = "Sample Size", ylab = "Execution Time (ms)", main = "Execution Time vs Sample Size")
+for(j in 2:3) {
+  lines(sample_sizes, medians[j, ], col = colors[j], type = "b")
+}
+legend("topleft", legend = labels, fill = colors, cex = 0.8)
+
+# Log-log scale plot
+plot(log10(sample_sizes), log10(medians[1, ]), ylim = range(log10(medians)), type = "b", col = colors[1], xlab = "Log10 Sample Size", ylab = "Log10 Execution Time (ms)", main = "Execution Time vs Sample Size (Log-Log Scale)")
+for(j in 2:3) {
+  lines(log10(sample_sizes), log10(medians[j, ]), col = colors[j], type = "b")
+}
+legend("topleft", legend = labels, fill = colors, cex = 0.8)
+
+# Linear regression on log-log scale plot
+lm_results <- list()
+for (j in 1:3) {
+  lm_results[[j]] <- lm(log10(medians[j, ]) ~ log10(sample_sizes))
+  cat("Linear Regression for", labels[j])
+  print(summary(lm_results[[j]]))
+}
+```
+**Linear-Linear Scale Plot**: This plot directly visualizes how the execution time for each method scales with increasing sample sizes. A steeper slope means that the execution time increases rapidly with larger sample sizes. The absolute magnitudes of the lines at any given point represent the execution time in milliseconds.
+
+**Log-Log Scale Plot**: This plot is useful for visualizing how each method scales, especially if the relationships are power-law-like. On a log-log scale, a straight line indicates a power-law relationship between sample size and execution time. On the log-log scale, the absolute heights still indicate which method is faster or slower, but now in logarithmic terms.
+
+The `truncated_normal_sample_1` function might be the slowest method, especially for larger sample sizes, given it has the highest slope compared to the other two functions.

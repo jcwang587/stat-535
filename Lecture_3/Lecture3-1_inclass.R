@@ -1,0 +1,404 @@
+# Agenda ====
+# - Conditionals: switching between different calculations.
+# - Iteration: Doing something over and over.
+# - Vectorizing: Avoiding explicit iteration.
+
+# Conditionals ====
+# Have the computer decide what to do next.
+
+# Example 1:
+
+#       {  x, if x>=0
+# |x| = {
+#       { -x, if x<0
+
+#          { x^2,        if |x|<=1
+# psi(x) = {
+#          { 2*|x| - 1,  if |x|>1
+
+
+# Exercise, plot psi(x) for -2.5 <= x <= 2.5
+
+#...
+
+
+
+
+''
+
+plot(x, psi_x, type = "l")
+lines(x, x^2, col = "red")
+
+# Example 2:
+# if the country code is not "US", multiply prices by current exchange rate.
+
+# if( ) ====
+# Simplest conditional:
+# if (condition) {
+#   do_something
+# }
+
+#...
+
+
+
+
+''
+
+# Slightly less simple conditional:
+# if (condition) {
+#   do_something
+# } else {
+#   do_something_else
+# }
+
+# Compute absolute value:
+x <- -5
+#...
+
+
+''
+abs_x
+
+# Try the above with a vector, say c(-5, 3, -2, 1, 0), does it work?
+
+
+# The exception is that a numeric value of length 1 is recast as FALSE if 0, 
+# TRUE if anything else.
+if (1) { print("Got here") }
+if (0) { print("Got here") }
+if (0 == FALSE) { print("Got here") }
+if (NA) { print("Got here") }
+if (NaN) { print("Got here") } 
+if (-Inf) { print("Got here") } 
+(0.5 - 0.3) - (0.3 - 0.1)
+if ((0.5 - 0.3) - (0.3 - 0.1)) { print("Got here") } 
+if (!all.equal((0.5 - 0.3) - (0.3 - 0.1), 0)) { print("Got here") } 
+
+# One-line actions don't need curly braces (you will see this when you read code, 
+# not recommended):
+if (x >= 0) x else -x
+
+# Nested if( ) ====
+# `if` can *nest* arbitrarily deeply:
+#...
+
+
+''
+
+# Combining Booleans: && and || ====
+# `&` and `|` work like `+` or `*`, combining terms element-wise while 
+# `&&` and `||` give _one_ Boolean, lazily:
+
+c(1, 2, 3) < 2.5
+(0 == 0) & (c(1, 2, 3) < 1.5)
+(0 == 0) && (c(1, 2, 3) < 1.5)
+
+(0 > 0) & (print("5") != "5")
+(0 > 0) && c(print("5") != "5", print("6") != "5")
+(0 == 0) && c(print("5") != "5", print("6") != "5")
+
+(0 == 0) | (print("5") != "5")
+(0 > 0) || c((print("5") != "5"), (print("6") != "5"))
+(0 == 0) || c((print("5") != "5"), (print("6") != "5"))
+  
+# This expression on the right is only evaluated if needed.
+
+
+# switch( ) ====
+# The `switch()` function tests an expression against elements of a `list`. Simplify nested `if` with `switch()`: give a variable to select on, then a value for each option:
+EXPR <- 2
+switch(EXPR,
+       "red",
+       "green",
+       "blue"
+       )
+switch(EXPR + 1,
+       "red",
+       "green",
+       "blue"
+       )
+
+EXPR <- "color"
+switch(EXPR,
+       color = "red",
+       shape = "square",
+       length = 5
+       )
+EXPR <- "length"
+switch(EXPR,
+       color = "red",
+       shape = "square",
+       length = 5
+       )
+
+library(datasets)
+states <-
+  data.frame(
+    state.x77,
+    abb = state.abb,
+    region = state.region,
+    division = state.division
+    )
+type.of.summary <- "median"
+switch(
+  type.of.summary,
+  mean = mean(states$Murder),
+  median = median(states$Murder),
+  histogram = hist(states$Murder),
+  "What?!")
+
+type.of.summary <- "something"
+switch(
+  type.of.summary,
+  mean = mean(states$Murder),
+  median = median(states$Murder),
+  histogram = hist(states$Murder),
+  "What?!"
+  )
+
+# Iteration Three ways ====
+# 
+#   + ```for(){}```
+#   + ```while(){}```
+#   + ```repeat{}```: `repeat` has no Boolean exit condition. You must use break.
+# 
+# for( ) ====
+# `for` iterates over a **counter** (here `i`) along a vector
+# (here `1:length(table.of.logarithms)`) and **loops through**
+# the **body** until it runs through the vector:
+
+#...
+
+
+''
+
+# Of course, it is most commonly used as:
+#...
+
+
+''
+
+# ```for``` construct works on any vector. You can loop over 
+# a vector of names (or file names), for instance.
+
+smurf_names <- 
+  c("Smurfette",
+    "Papa Smurf",
+    "Clumsy Smurf",
+    "Brainy Smurf",
+    "Grouchy Smurf",
+    "Hefty Smurf"
+    )
+
+#...
+
+
+''
+
+# Or you can loop over a list (= non-atomic vector)
+list_to_iterate_over <- list(1, "character", FALSE)
+for (l in list_to_iterate_over) {
+  print(typeof(l))
+}
+
+
+# Nested Iteration Example ====
+A <- matrix(1:10, nrow = 2, ncol = 5)
+B <- matrix(11:25, nrow = 5, ncol = 3)
+C <- matrix(0, nrow = nrow(A), ncol = ncol(B))
+if (ncol(A) == nrow(B)) {
+  for (i in 1:nrow(C)) {
+    for (j in 1:ncol(C)) {
+      for (k in 1:ncol(A)) {
+        C[i,j] <- C[i,j] + A[i,k] * B[k,j]
+      }
+    }
+  }
+} else {
+  stop("matrices a and b non-conformable")
+}
+
+# What does this do?
+
+# Compare it to the standard operator:
+
+''
+
+# `next` statement skips the remainder of the current iteration 
+# of the loop and proceed directly to the next one,
+# `break` statement exists the loop.
+x <- 1:6
+for (val in x) {
+  if (val == 3){
+    next
+  }
+  if (val == 6) {
+    break
+  }
+  print(val)
+}
+
+# while( ): Conditional Iteration ====
+
+# Take the square root of `x0` until it is close enough to 1:
+x0 <- 7
+x <- x0
+{
+  i <- 1
+  cat(paste0("x = ", x, "\n"))
+  while (x - 1 > 1e-06) {
+    x <- sqrt(x)
+    cat(paste0(x0, "^(1/", 2 ^ i,  ") = ", x, "\n"))
+    i = i + 1
+  }
+}
+
+# Condition in the argument to `while()` must be a single Boolean value
+# (like `if()`). The body is looped over until the condition is `FALSE`.
+# The loop never begins unless the condition starts `TRUE`.
+
+
+# for( ) vs. while( ) ====
+# `for()` is better when the number of times to repeat (values to iterate over) is
+# clear in advance, while `while()` is better when you can recognize when to stop
+# once you're there, even if you can't guess it to begin with. Every `for()` could
+# be replaced with a `while()`.  
+
+# repeat ====
+
+repeat {}
+
+# Sample from the normal distribution and stop when an observation is larger in 
+# absolute value than 2.5:
+
+#...
+
+
+''
+
+# Vectorization ====
+  
+# As we have seen, many very basic operations in R actually involve a whole
+# set of operations that run in the background. This may potentially cause R code
+# to be slow, compared to compiled (C, C++, Java) code. Many operations can be
+# *vectorized*. That is, some of the operations skipped, memory allocated in a 
+# more efficient fashion, and loops carried out in C or C++. This, at times, can
+# significantly accelerate your code.
+
+# For a nice introduction to vectorization in R, see:
+# https://www.r-bloggers.com/vectorization-in-r-why/  
+    
+
+# Example 1:
+
+N <- 10
+a <- rnorm(N)
+b <- rnorm(N)
+
+# An awful way to compute the sum of teh vectors `a` and `b`:
+#...
+
+
+''
+
+# A slightly less awful way to compute the sum of two vectors:
+#...
+
+
+
+
+''
+
+# We "vectorized" the memory allocation.
+
+# A good way to compute the sum of two vectors:
+#...
+
+
+
+# Let's measure the relative speed using the `microbenchmark` function:
+N <- 100000
+a <- rnorm(N)
+b <- rnorm(N)
+
+res <- 
+  microbenchmark::microbenchmark(
+    {
+      #...
+    },
+    {
+      #...
+    },
+    {
+      #...
+    },
+    unit = "ns" # for "nanoseconds"
+  )
+sum_res <- summary(res)
+sum_res
+
+
+# Using the triple `for()` loop we wrote earlier vs. `a %*% b` will be even worse...
+
+
+# Vectorized Calculations ====
+# Many functions are set up to vectorize automatically:
+abs(-3:3)
+log(1:7)
+
+# We saw the `apply()` family in the previous lecture.
+
+# Vectorized Conditions: ifelse() applies an `if` statement to each element of a vector: ====
+# The `ifelse` function:
+# 1st argument is a logical vector, then pick from the 2nd or 3rd arguments, 
+# first for `TRUE` and then for `FALSE`.
+
+
+N <- 10000
+x <- runif(N, -5, 5)
+
+# using a high level loop:
+#...
+
+
+
+
+''
+
+# "vectorized":
+#...
+
+
+
+
+
+''
+
+
+# Sanity check:
+all(y1 == y2)
+
+# Speed:
+N <- 10000
+x <- runif(N, -5, 5)
+res <- 
+  microbenchmark::microbenchmark(
+    {
+      #...
+    }, 
+    {
+      #...
+    }
+  )
+sum_res <- summary(res)
+#...
+
+# It is important to notice that the performance may also depend on the 
+# input values. What do you expect will happen if we repeat the same computation
+# with x <- runif(N, another_lower_boundary, another_upper_boundary)?
+
+# Summary ====
+# - `if`, nested `if`, `switch`.
+# - Iteration: `for`, `while`, `repeat`.
+# - Avoiding iteration with whole-object ("vectorized") operations.

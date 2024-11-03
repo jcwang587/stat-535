@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="12px" height="19px" viewBox="0 0 12 19" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 46.2 (44496) - http://www.bohemiancoding.com/sketch -->
+    <title>phone</title>
+    <desc>Created with Sketch.</desc>
+    <defs></defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" opacity="0.85">
+        <g id="Desktop-Copy-6" transform="translate(-1092.000000, -2604.000000)">
+            <g id="phone" transform="translate(1092.000000, 2604.000000)">
+                <path d="M2,16.6665487 C2,16.667523 9.9914698,16.6666667 9.9914698,16.6666667 C9.99670373,16.6666667 10,2.2223402 10,2.2223402 C10,2.22136588 2.0085302,2.22222222 2.0085302,2.22222222 C2.00329627,2.22222222 2,16.6665487 2,16.6665487 Z M0,2.2223402 C0,0.994975599 0.901950359,0 2.0085302,0 L9.9914698,0 C11.1007504,0 12,0.988953792 12,2.2223402 L12,16.6665487 C12,17.8939133 11.0980496,18.8888889 9.9914698,18.8888889 L2.0085302,18.8888889 C0.899249601,18.8888889 0,17.8999351 0,16.6665487 L0,2.2223402 Z" id="Rectangle-8" fill="#979797" fill-rule="nonzero"></path>
+                <polygon id="Rectangle-2" fill="#999999" transform="translate(6.006356, 17.220099) rotate(1.000000) translate(-6.006356, -17.220099) " points="1.75666745 15.6995547 10.2560439 15.5511976 10.0535785 18.7484244 2.00003803 18.8889995"></polygon>
+                <polygon id="Line" fill="#FFFFFF" fill-rule="nonzero" points="5 17.7777778 7 17.7777778 7 16.6666667 5 16.6666667"></polygon>
+            </g>
+        </g>
+    </g>
+</svg>

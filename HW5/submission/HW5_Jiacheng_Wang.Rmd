@@ -1,0 +1,256 @@
+---
+title: 'Lab/HW 5: Database'
+author: 'Name: Jiacheng Wang'
+date: October 2023
+output: 
+  html_document:
+    toc: TRUE
+number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Part I dplyr {-}
+
+## 1.1 {-}
+Which destinations are served by at least three airlines?
+```{r}
+options(max.print = 60)
+library(nycflights13)
+library(dplyr)
+```
+
+```{r}
+result <- flights %>%
+  group_by(dest) %>%
+  summarise(num_carriers = n_distinct(carrier)) %>%
+  filter(num_carriers >= 3) %>%
+  arrange(desc(num_carriers), dest)
+```
+
+The following output are destinations served by **at least three** airlines:
+```{r}
+print(result)
+```
+
+## 1.2 {-}
+Which carrier has the highest number of delayed departures and which the lowest?
+
+```{r}
+delay_summary <- flights %>%
+  filter(dep_delay > 0) %>%
+  group_by(carrier) %>%
+  summarise(num_delays = n()) %>%
+  arrange(desc(num_delays))
+
+highest_delay <- delay_summary[1, ]
+lowest_delay <- delay_summary[nrow(delay_summary), ]
+```
+
+**UA** has the highest number of delayed flights, and **OO** has the lowest number of delayed flights.
+```{r}
+print(highest_delay)
+print(lowest_delay)
+```
+
+
+# Part II SQL {-}
+## 2.1 {-}
+
+```{r}
+library(DBI)
+library(RSQLite)
+library(dbplyr)
+```
+
+a. Using `DBI` and `RSQLite`, setup a connection to the `SQLite` database stored in `baseball.db`. Use `dbListTables()` to list the tables in the database.
+
+```{r}
+drv = dbDriver("SQLite")
+con = dbConnect(drv, dbname = "baseball.db")
+dbListTables(con)
+```
+
+b. Use the table that contains salaries and compute the payroll for each team in 2010. Use `dbReadTable()` to grab the entirety of the table, then manipulate using `dplyr` verbs. Which teams had the highest payrolls (that is, sum of all paid salaries)?
+```{r}
+salaries_table <- dbReadTable(con, 'Salaries')
+
+payroll_2010_dplyr <- salaries_table %>%
+  filter(yearID == 2010) %>%
+  group_by(teamID) %>%
+  summarise(total_payroll = sum(salary, na.rm = TRUE)) %>%
+  arrange(desc(total_payroll))
+
+print(payroll_2010_dplyr)
+```
+
+The output provided indicates that the team with the highest payroll in the year 2010 was the **New York Yankees (team ID: NYA)** with a total payroll amounting to approximately $206.33 million.
+```{r}
+highest_payroll_team <- payroll_2010_dplyr[1, ]
+print(highest_payroll_team)
+```
+
+c. Repeat the previous step, but now do this using only `dbGetQuery()` and `SQL`. Are your answers `identical()`? Why or why not? Are their values `all_equal()`?
+```{r}
+query <- "
+  SELECT teamID, SUM(salary) as total_payroll
+  FROM Salaries
+  WHERE yearID = 2010
+  GROUP BY teamID
+  ORDER BY total_payroll DESC;
+"
+
+payroll_2010_sql <- dbGetQuery(con, query)
+print(payroll_2010_sql)
+```
+
+```{r}
+identical(payroll_2010_dplyr, payroll_2010_sql)
+```
+
+That implies that there is some difference between the two objects. Check the structure of the two data frames using `str()`:
+```{r}
+str(payroll_2010_dplyr)
+str(payroll_2010_sql)
+```
+
+The structures of both data frames `payroll_2010_dplyr` and `payroll_2010_sql` appear to be similar in terms of column names, column types, and the number of observations. However, `payroll_2010_dplyr` is a type of `tibble` while `payroll_2010_sql` is a type of `data.frame`, which is the reason why not identical.
+
+```{r}
+all_equal(payroll_2010_dplyr, payroll_2010_sql)
+```
+The output `TRUE` from `all_equal()` suggests that the values in `payroll_2010_dplyr` and `payroll_2010_sql` are indeed equivalent
+
+d. Repeat again Step b., using this time the `dbplyr` functions. After you show the results, show the `SQL` query that was used behind the scenes.
+```{r}
+salaries_link <- tbl(con, "Salaries")
+
+# Build the query to compute payroll for each team in 2010
+payroll_summary_dbplyr <- salaries_link %>%
+  filter(yearID == 2010) %>%
+  group_by(teamID) %>%
+  summarize(payroll = sum(salary)) %>%
+  arrange(desc(payroll))
+
+print(payroll_summary_dbplyr)
+```
+
+The output provided indicates that the team with the highest payroll in the year 2010 was the **New York Yankees (team ID: NYA)** with a total payroll amounting to approximately $206.33 million.
+```{r}
+payroll_summary_collected <- payroll_summary_dbplyr %>% collect()
+highest_payroll_team_collected <- payroll_summary_collected %>% slice(1)
+print(highest_payroll_team_collected)
+```
+
+The SQL query that was used behind the scenes can be shown using `show_query()`:
+```{r}
+payroll_summary_dbplyr %>% show_query()
+```
+
+e. Modify the SQL statement to compute the payroll for each team for each year from 1985 to 2010.
+```{r}
+query <- "
+  SELECT yearID, teamID, SUM(salary) as total_payroll
+  FROM salaries
+  WHERE yearID BETWEEN 1985 AND 2010
+  GROUP BY teamID, yearID
+  ORDER BY teamID, yearID;
+"
+
+# Execute the query
+payroll_summary <- dbGetQuery(con, query)
+
+# View the result
+print(payroll_summary)
+```
+
+f. Do the same with `dbplyr`.
+```{r}
+payroll_summary_dbplyr <- salaries_link %>%
+  group_by(yearID, teamID) %>%
+  filter(yearID >= 1985 & yearID <= 2010) %>%
+  summarize(payroll = sum(salary)) %>%
+  arrange(teamID, yearID)
+
+payroll_summary_dbplyr
+```
+
+## 2.2 {-}
+Write a function that accepts three inputs: minimal total salary, first year and last year. The function returns the number of players whose total salary between the first year and last year (inclusive) exceeded the minimal total salary.
+
+```{r}
+find_salary_players <- function(min_salary, start_year, end_year) {
+  # Constructing the query string using paste
+  query_string <- paste(
+    "SELECT COUNT(*) FROM (",
+    "SELECT playerID, SUM(salary) AS totalSalary",
+    "FROM Salaries",
+    "WHERE yearID BETWEEN", start_year, "AND", end_year,
+    "GROUP BY playerID",
+    "HAVING totalSalary >", min_salary,
+    ")",
+    sep = " "
+  )
+  
+  # Executing the query
+  result <- dbGetQuery(con, query_string)
+  
+  # Returning the result
+  return(result)
+}
+```
+The function `find_salary_players` retrieves the count of players from a database whose total salary over a specified range of years exceeds a given minimum salary. This function takes three arguments: 
+
+ - min_salary: The minimum total salary threshold.
+ 
+ - start_year: The starting year of the range.
+ 
+ - end_year: The ending year of the range.
+ 
+The function constructs a SQL query string using the `paste` function, executes this query on the database to find players meeting the criteria, and returns the count of such players. The output for `find_salary_players(100000000, 1995, 2005)` and `find_salary_players(200000000, 1995, 2010)` are exactly the same as expected, which are 15 and 3, respectively.
+```{r}
+find_salary_players(100000000, 1995, 2005)
+find_salary_players(200000000, 1995, 2010)
+```
+
+
+## 2.3 {-}
+Write a function that takes as input a year, a name of a team, and minimal AB value, and returns all playerIDs in the input team that had at least the minimal AB value in the input year.
+
+```{r}
+get_players_ab <- function(target_year, team_name, min_ab) {
+  # Constructing the query string using paste
+  query_string <- paste(
+    "SELECT playerID",
+    "FROM Batting",
+    "WHERE teamID =", shQuote(team_name), 
+    "AND yearID =", target_year, 
+    "AND AB >= ", min_ab,
+    sep = " "
+  )
+  
+  # Executing the query
+  result <- dbGetQuery(con, query_string)
+  
+  # Returning the result
+  return(result)
+}
+```
+The function `get_players_ab` retrieves a list of playerIDs from a specified team who have attained a minimum number of AB in a given year from a database. This function accepts three arguments:
+
+ - target_year: The year for which the data is to be retrieved.
+
+ - team_name: The name of the team whose player data is to be retrieved.
+
+ - min_ab: The minimum number of AB a player must have to be included in the result.
+
+The function constructs a SQL query string using the `paste` function, executes this query 
+on the database to find players meeting the criteria, and returns the list of playerIDs. The output for `(2010, “CHA”, 300)` is exactly the same as expected, which is shown below.
+
+```{r}
+get_players_ab(2010, "CHA", 300)
+```
+
+

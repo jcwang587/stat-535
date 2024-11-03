@@ -1,0 +1,352 @@
+---
+title: 'Lab/HW 3: Lists, Data Frames, Functions'
+author: 'Name: Jiacheng Wang'
+date: October 2023
+output: 
+  html_document:
+    toc: TRUE
+number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 0 Part 0 Regular expressions - Miscelleneous Exercises - Extra Credit {-}
+
+## 0.1 {-}
+1. Match the literal string \$ˆ\$ (not as a part of another string)
+```{r}
+library(stringr)
+str_view(c("$^$", "aaa$^$bbb"), "^\\$\\^\\$$", match = TRUE)
+```
+
+
+## 0.2 Repetition {-}
+1. Extract words with three or more vowels
+```{r}
+str_view(words, "[aeiou]{3,}", match = TRUE)
+```
+
+2. Extract words with two or more vowel-consonant pairs
+```{r}
+str_view(words, "([aeiou][^aeiou]){2,}", match = TRUE)
+```
+
+
+## 0.3 Grouping and backreferences {-}
+1. Extract words that start and end with the same letter
+```{r}
+str_view(words, "^(.).*\\1$", match=TRUE)
+```
+
+2. Extract words that contain a repeated pair of letters
+```{r}
+str_view(words, "(..).*\\1", match = TRUE)
+```
+
+3. Extract words that contain one letter repeated in at least three places
+```{r}
+str_view(words, "([a-z]).*\\1.*\\1", match = TRUE)
+```
+
+## 0.4 Detect matches {-}
+1. Extract words that start with a vowel and end with a consonant
+```{r}
+str_subset(words, "^[aeiou].*[^aeiou]$") %>% head()
+```
+
+2. There are no words that contain at least one of the each different vowel
+```{r}
+words[str_detect(words, "a") &
+  str_detect(words, "e") &
+  str_detect(words, "i") &
+  str_detect(words, "o") &
+  str_detect(words, "u")]
+```
+
+3. Extract words that has the highest proportion of vowels
+```{r}
+vowels <- str_count(words, "[aeiou]")
+words[which.max(vowels / str_length(words))]
+```
+
+## 0.5 Extract matches {-}
+1. Extract the first word from each sentence
+```{r}
+str_extract(sentences, "[A-ZAa-z]+") %>% head()
+```
+
+2. Extract all words ending in ing
+```{r}
+pattern <- "\\b[A-Za-z]+ing\\b"
+sentences_with_ing <- str_detect(sentences, pattern)
+unique(unlist(str_extract_all(sentences[sentences_with_ing], pattern))) %>% head()
+```
+
+## 0.6 Replacing matches {-}
+1. Switch the first and last letters in `stringr::words`.
+```{r}
+switched_words <- str_replace(words, 
+                              pattern = "^(.)(.*)(.)$", 
+                              replacement = "\\3\\2\\1")
+
+head(switched_words)
+```
+
+2. Which of those strings in question 1 are still words
+```{r}
+valid_switched_words <- switched_words[switched_words %in% words]
+print(valid_switched_words)
+```
+
+3. Of these strings in question 2, which don’t start and end with the same letter
+```{r}
+filtered_valid_words <- valid_switched_words[substr(valid_switched_words, 1, 1) != substr(valid_switched_words, nchar(valid_switched_words), nchar(valid_switched_words))]
+print(filtered_valid_words)
+```
+
+
+# 1 Part I Regular expressions - Scraping HTML to data frame {-}
+
+## 1.1 {-}
+Use the `readLines` command to load the file into a character vector called `richhtml`.
+```{r}
+richhtml <- readLines("rich.html")
+```
+
+It contains **1991** lines.
+```{r}
+length(richhtml)
+```
+
+The total number of characters in the file is **80, 375**.
+```{r}
+sum(nchar(richhtml))
+```
+
+## 1.2 {-}
+Find the entries for Bill Gates and give the text of lines from the file that has his name.
+```{r}
+richhtml[grep("Bill Gates", richhtml)]
+```
+
+Find the entries for Bill Gates and give the text of lines from the file that has his net worth.
+```{r}
+richhtml[grep("72 B", richhtml)]
+```
+
+Find the entries for Stanley Kroenke and give the text of lines from the file that has his name.
+```{r}
+richhtml[grep("Stanley Kroenke", richhtml)]
+```
+
+Find the entries for Stanley Kroenke and give the text of lines from the file that has his net worth.
+```{r}
+richhtml[grep("5,3 B", richhtml)]
+```
+
+
+## 1.3 {-}
+Extract name and net worth data from the `richhtml` vector.
+```{r}
+pattern1 <- "(?=.*\t\t\t<h3>)(?=.*</h3></a></td>)"
+name <- grep(pattern1, richhtml, perl = TRUE)
+name_data <- richhtml[name]
+name_pattern <- "\t\t\t<h3>|</h3></a></td>"
+NAME <- gsub(name_pattern, "", name_data)
+
+pattern2 <- "\t\t<td class=\"worth\">"
+worth <- grep(pattern2, richhtml)
+worth_data <- richhtml[worth]
+worth_pattern <- "\t\t<td class=\"worth\">|B</td>|\\$"
+WORTH <- gsub(worth_pattern, "", worth_data) 
+WORTH <- gsub(",", ".", WORTH) 
+```
+
+Create data frame `DF` with two columns: `NAME` and `WORTH`.
+```{r}
+DF <- data.frame(NAME, WORTH)
+DF$NAME <- as.character(DF$NAME)
+DF$WORTH <- as.numeric(as.character(DF$WORTH))
+head(DF)
+```
+
+The name column is **characters** and the net worth column is **numeric**.
+```{r}
+class(DF$NAME)
+class(DF$WORTH)
+```
+
+Ensure there are 100 rows.
+```{r}
+nrow(DF)
+```
+
+# 2 Part II Regular expressions - Scraping to other structures {-}
+## 2.1 {-}
+a. The type of data of `umass_tweets_xml` is **character**, and the size of `umass_tweets_xml` is **4941**.
+```{r}
+umass_tweets_xml_raw <- readLines("umass_tweets_raw.xml")
+typeof(umass_tweets_xml_raw)
+length(umass_tweets_xml_raw)
+```
+
+b. The first line contains the following
+```{r}
+print(umass_tweets_xml_raw[1])
+```
+
+c. The second line contains the following
+```{r}
+print(umass_tweets_xml_raw[2])
+```
+
+d. The third line contains the following
+```{r}
+print(umass_tweets_xml_raw[3])
+```
+
+e. The second to last line contains the following
+```{r}
+print(umass_tweets_xml_raw[length(umass_tweets_xml_raw)-1])
+```
+
+f. The last line contains the following
+```{r}
+print(umass_tweets_xml_raw[length(umass_tweets_xml_raw)])
+```
+
+g. Create a regular expression using `<full_text>(.*?)</full_text>` that is unique to the lines that have messages. It is also verified that it captures 4938 tweets.
+```{r}
+pattern <- "<full_text>(.*?)</full_text>"
+tweet_matches <- str_extract_all(umass_tweets_xml_raw, pattern)
+num_tweets <- sum(unlist(lapply(tweet_matches, length)))
+print(num_tweets)
+```
+
+h. Assign only the rows of `umass_tweets_xml` that have messages in them to a new variable `umass_tweets_xml` using the regular expression from the previous question.
+```{r}
+umass_tweets_xml <- umass_tweets_xml_raw[str_detect(umass_tweets_xml_raw, pattern)]
+```
+
+## 2.2 {-}
+a. Define a regular expression using `^.*?<full_text>|</full_text>.*?$` that matches everything that is not part of the full text of a tweet.
+```{r}
+not_full_text_pattern <- "^.*?<full_text>|</full_text>.*?$"
+```
+
+b. Use a function to substitute `""` for everything that is not a part the full text in `umass_tweets_xml`.
+```{r}
+umass_tweets_cleaned <- str_replace_all(umass_tweets_xml, not_full_text_pattern, "")
+head(umass_tweets_cleaned)
+```
+
+c. Create a variable which will store all the words from the text messages. In addition, convert all words to lowercase.
+```{r}
+words_list <- str_split(umass_tweets_cleaned, boundary("word"))
+words_vector <- tolower(unlist(words_list))
+head(words_vector)
+```
+
+
+## 2.3 {-}
+a. Create a variable named `twitter_vocab` that contains a table of all words and their counts.
+```{r}
+twitter_vocab <- table(words_vector)
+twitter_vocab <- sort(twitter_vocab, decreasing = TRUE)
+```
+
+b. Save the twitter vocabulary.
+```{r}
+saveRDS(twitter_vocab, "twitter_vocabulary.rds")
+```
+
+
+## 2.4 {-}
+Process the file “top_10000_english_words.txt”. Read it to R and using regular expressions create a character vector named `engilsh_vocab` of length 10,000, where each entry is a word, and those are organized from high to low frequency.
+```{r}
+# Read the raw data
+english_vocab_raw <- readLines("top_10000_english_words.txt")
+
+# Extract words using regular expression
+pattern <- "(?<=\\[\\[)([^]]+)(?=\\]\\])"
+english_vocab <- unlist(regmatches(english_vocab_raw, gregexpr(pattern, english_vocab_raw, perl = TRUE)))
+
+# Save the English vocabulary
+saveRDS(english_vocab, "english_vocabulary.rds")
+```
+
+## 2.5 {-}
+Write a function that takes as inputs a character value and an integer. The requirements for the function (**questions b-f**) are listed in the comments of the code below.
+```{r}
+spellingSugestion <- function(input_chars, num_results=4) {
+  
+  # b. Load the twitter vocabulary
+  twitter_vocab <- readRDS("twitter_vocabulary.rds")
+  
+  # c. Create a regular expression to identify words starting with input_chars
+  pattern <- paste0("^", input_chars, ".*")
+  
+  # d. Identify all locations in the names(twitter_vocab) that start with the input characters
+  matching_locs <- grep(pattern, names(twitter_vocab), ignore.case = TRUE)
+  
+  # e. Select, sort and limit entries
+  matching_words <- sort(twitter_vocab[matching_locs], decreasing = TRUE)
+  top_words <- head(names(matching_words), n = num_results)
+  
+  # f. If not enough words are found, look into the English vocabulary
+  if (length(top_words) < num_results) {
+    
+    english_vocab <- readRDS("english_vocabulary.rds")
+    remaining_needed <- num_results - length(top_words)
+    
+    english_matching_locs <- grep(pattern, english_vocab, ignore.case = TRUE)
+    english_top_words <- head(english_vocab[english_matching_locs], n = remaining_needed)
+    
+    # Ensure we don't have duplicates
+    english_top_words <- setdiff(english_top_words, top_words)
+    
+    # Append the words found in the English dictionary to the result
+    top_words <- c(top_words, english_top_words)
+    
+    # Notify the user about words added from the English dictionary
+    if (length(english_top_words) > 0) {
+      message("Added the following English vocabulary words: ", paste(english_top_words, collapse = ", "))
+    }
+  }
+  
+  return(top_words)
+}
+```
+
+The developed function, `spellingSugestion`, is given here which can suggest words based on input characters, drawing primarily from the `twitter_vocabulary` dataset and supplementing with the `english_vocabulary` dataset when necessary. The function's efficacy was validated through the following test cases, consistently producing the exactly same results as required.
+
+```{r}
+spellingSugestion("sh", 15)
+```
+15 words, all from the Twitter data set.
+
+```{r}
+spellingSugestion("baro", 10)
+```
+Five words (where 10 were requested), two words from Twitter and two from English vocabulary
+
+```{r}
+spellingSugestion("albe")
+```
+Four words, all form the Twitter data set (i.e. English vocabulary was checked and not used)
+
+```{r}
+spellingSugestion("hab")
+```
+Only words from English vocabulary
+
+```{r}
+spellingSugestion("q[^u]", 20)
+```
+This returns all words in our vocabularies that start with q that is not followed by u. All of which are found in the Twitter vocabulary.
+
+
+
+

@@ -1,0 +1,347 @@
+---
+title: 'Lab/HW 10: Monte Carlo'
+author: 'Name: Jiacheng Wang'
+date: November 2023
+output: 
+  html_document:
+    toc: TRUE
+number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Bootstrap {-}
+
+## Question 1.1 {-}
+1. Code Completion and Coverage Performance Demonstration
+
+The completed code, as shown below, successfully demonstrates the coverage performance of the bootstrap confidence interval for the mean of a gamma-distributed model with a scale of 2 and shape of 2, over 200 observations. The output coverage probability of 0.941 implies that the bootstrap confidence intervals are accurately capturing the true mean in most cases.
+
+```{r}
+shape <- 2
+scale <- 2
+n <- 200
+true_mean <- shape / scale 
+covered <- 0
+for (s in 1:1000) {
+    M <- 500 # size of bootstrap sample
+    stat <- numeric(M) # Initialize stat as a numeric vector of size M
+    smpl <- rgamma(n, shape, scale)
+    for (m in 1:M) {
+        idx <- sample(n, n, replace = TRUE) # Resampling with replacement
+        stat[m] <- mean(smpl[idx]) # Storing the mean of the bootstrap sample
+    }
+    if (quantile(stat, 0.025) <= true_mean & true_mean <= quantile(stat, 0.975)) {
+        covered = covered + 1
+    }
+}
+coverage_probability <- covered / 1000
+coverage_probability
+
+```
+
+2. Factors Adversely Impacting the Estimated Coverage Probability
+
+Several factors can adversely impact the estimated coverage probability in a bootstrap analysis:
+
+Sample Size (n): A smaller sample size can increase variability and decrease the accuracy of the bootstrap confidence intervals. This may lead to lower coverage probabilities. Here, we'll run the bootstrap analysis with different sample sizes with 50, 100, and 500.
+
+```{r}
+shape <- 2
+scale <- 2
+sample_sizes <- c(50, 100, 500)
+M <- 500 # size of bootstrap sample
+
+for (n in sample_sizes) {
+    true_mean <- shape / scale
+    covered <- 0
+    for (s in 1:1000) {
+        stat <- numeric(M)
+        smpl <- rgamma(n, shape, scale)
+        for (m in 1:M) {
+            idx <- sample(n, n, replace = TRUE)
+            stat[m] <- mean(smpl[idx])
+        }
+        if (quantile(stat, 0.025) <= true_mean & true_mean <= quantile(stat, 0.975)) {
+            covered = covered + 1
+        }
+    }
+    coverage_probability <- covered / 1000
+    cat("Sample size:", n, "Coverage Probability:", coverage_probability, "\n")
+}
+```
+
+Bootstrap Sample Size (M): A smaller number of bootstrap samples may not capture the full variability of the sampling distribution, potentially leading to inaccurate confidence intervals. Here, we'll run the bootstrap analysis with different bootstrap sample sizes with 100, 200, and 1000.
+
+```{r}
+shape <- 2
+scale <- 2
+n <- 200
+true_mean <- shape / scale
+bootstrap_sizes <- c(100, 200, 1000)
+
+for (M in bootstrap_sizes) {
+    covered <- 0
+    for (s in 1:1000) {
+        stat <- numeric(M)
+        smpl <- rgamma(n, shape, scale)
+        for (m in 1:M) {
+            idx <- sample(n, n, replace = TRUE)
+            stat[m] <- mean(smpl[idx])
+        }
+        if (quantile(stat, 0.025) <= true_mean & true_mean <= quantile(stat, 0.975)) {
+            covered = covered + 1
+        }
+    }
+    coverage_probability <- covered / 1000
+    cat("Bootstrap sample size:", M, "Coverage Probability:", coverage_probability, "\n")
+}
+```
+
+Distribution Skewness: If the original data distribution is highly skewed, the bootstrap method might not estimate the confidence intervals accurately, particularly if the mean is not a robust measure of central tendency. Here, we'll run the bootstrap analysis with a highly skewed distribution with exponential distribution.
+
+```{r}
+shape <- 2 # For gamma distribution
+scale <- 2
+n <- 200
+M <- 500
+true_mean <- shape / scale
+
+# Gamma distribution
+covered_gamma <- 0
+for (s in 1:1000) {
+    stat <- numeric(M)
+    smpl <- rgamma(n, shape, scale)
+    for (m in 1:M) {
+        idx <- sample(n, n, replace = TRUE)
+        stat[m] <- mean(smpl[idx])
+    }
+    if (quantile(stat, 0.025) <= true_mean & true_mean <= quantile(stat, 0.975)) {
+        covered_gamma = covered_gamma + 1
+    }
+}
+
+# Exponential distribution (highly skewed)
+covered_exp <- 0
+lambda <- 1 / scale # Exponential distribution parameter
+true_mean_exp <- 1 / lambda # Correct mean for exponential distribution
+
+for (s in 1:1000) {
+    stat <- numeric(M)
+    smpl <- rexp(n, lambda)
+    for (m in 1:M) {
+        idx <- sample(n, n, replace = TRUE)
+        stat[m] <- mean(smpl[idx])
+    }
+    if (quantile(stat, 0.025) <= true_mean_exp & true_mean_exp <= quantile(stat, 0.975)) {
+        covered_exp = covered_exp + 1
+    }
+}
+
+coverage_probability_gamma <- covered_gamma / 1000
+coverage_probability_exp <- covered_exp / 1000
+cat("Coverage Probability for Gamma Distribution:", coverage_probability_gamma, "\n")
+cat("Coverage Probability for Exponential Distribution:", coverage_probability_exp, "\n")
+```
+
+## Question 1.2 {-}
+
+a. Estimate the coefficients of a simple linear regression where the fitting is based on minimizing the mean of the psi-error.
+
+```{r}
+library(MASS)
+library(boot)
+
+# Define the psi function
+psi <- function(x, c = 1) {
+  ifelse(
+    abs(x) > c,
+    2 * c * abs(x) - c^2,
+    x^2
+  )
+}
+
+# Define the mean psi regression function
+mean_psi_regression <- function(b, Y, X, c = 1) {
+  mean(psi(Y - (b[1] + b[2] * X), c))
+}
+
+# Load the cats dataset
+data(cats)
+
+# Initial estimates for optim
+init_b <- c(0, 0)
+
+# Optimizing the coefficients using optim
+fit <- optim(
+  par = init_b,
+  fn = mean_psi_regression,
+  Y = cats$Hwt,
+  X = cats$Bwt,
+  method = "BFGS"
+)
+```
+
+b. Construct a bootstrap sample for the estimated coefficients of a simple linear regression where the fitting is based on minimizing the mean of the psi-error.
+
+```{r}
+# Bootstrap procedure
+set.seed(123) # for reproducibility
+boot_fn <- function(data, indices) {
+  d <- data[indices, ]
+  optim(par = init_b, fn = mean_psi_regression, Y = d$Hwt, X = d$Bwt)$par
+}
+
+# Bootstrap the data
+boot_results <- boot(data = cats, statistic = boot_fn, R = 1000)
+```
+
+c. Estimate the standard deviations of each of the coefficients.
+
+```{r}
+# Estimate standard deviations of the coefficients
+std_err <- apply(boot_results$t, 2, sd)
+```
+
+d. Construct 95% confidence intervals for the coefficients and, based on those, determine whether or not we can reject a null hypothesis that each of them is equal to zero.
+
+```{r}
+# Constructing 95% confidence intervals
+conf_intervals <- boot.ci(boot_results, type = "bca", index = 1:2)
+
+# Print results
+cat("Estimated coefficients (from optim):\n", fit$par, "\n")
+cat("Standard errors of the coefficients:\n", std_err, "\n")
+cat("95% Confidence Intervals:\n")
+print(conf_intervals)
+```
+
+Since the 95% confidence interval for the intercept includes zero (-1.8221, 1.4037), we cannot reject the null hypothesis for the intercept. This means there's not enough evidence to suggest a significant deviation from zero for the intercept in the model.
+
+# Rcpp - The Sieve of Eratosthenes {-}
+
+## Question 2.1 {-}
+Write an R function that implements the algorithm as described above. In this implementation you will need nested loops, please keep them both explicit (that is, do not vectorize any of them).
+
+```{r}  
+sieveOfEratosthenes <- function(n) {
+    if (n < 2) return(NULL)
+
+    primes <- rep(TRUE, n - 1)
+    primes[1] <- FALSE
+    max_check <- floor(sqrt(n))
+
+    for (i in 2:max_check) {
+        if (primes[i - 1]) {
+            for (j in seq(i^2, n, i)) {
+                primes[j - 1] <- FALSE
+            }
+        }
+    }
+
+    return(which(primes))
+}
+```
+
+## Question 2.2 {-}
+The outer loop cannot be vectorized because the actions taken in it in step i depend on values that were determined in step i-1. However, the inner loop can be vectorized. Find a way to improve the code by vectorizing the inner loop using an R technique for vectorization.
+
+```{r}  
+sieveOfEratosthenesVec <- function(n) {
+    if (n < 2) return(NULL)
+
+    primes <- rep(TRUE, n - 1)
+    primes[1] <- FALSE
+    max_check <- floor(sqrt(n))
+
+    for (i in 2:max_check) {
+        if (primes[i - 1]) {
+            primes[seq(i^2, n, i) - 1] <- FALSE
+        }
+    }
+
+    return(which(primes))
+}
+```
+
+## Question 2.3 {-}
+Translate your code to C++ using the Rcpp interface and objects. Think carefully about vector subsetting in Rcpp (hint: it is often similar to R, but you have to check your work carefully)
+
+```{r}  
+library(Rcpp)
+
+Rcpp::cppFunction('
+LogicalVector sieve_eratosthenes_cpp(int n) {
+    if (n < 2) return LogicalVector::create();
+    
+    LogicalVector A(n, true);
+    A[0] = false; // 1 is not a prime
+    int max_check = sqrt(n);
+
+    for (int i = 2; i <= max_check; i++) {
+        if (A[i - 1]) {
+            for (int j = i * i; j <= n; j += i) {
+                A[j - 1] = false;
+            }
+        }
+    }
+    return A;
+}
+')
+```
+
+```{r}
+library(Rcpp)
+library(RcppArmadillo)
+
+Rcpp::cppFunction(depends = "RcppArmadillo", '
+arma::uvec sieve_eratosthenes_arma(int n) {
+    if (n < 2) return arma::uvec();
+    
+    arma::uvec A = arma::ones<arma::uvec>(n);
+    A(0) = 0; // 1 is not a prime number
+
+    for (int i = 2; i <= sqrt(n); i++) {
+        if (A(i - 1) == 1) {
+            for (int j = i * i; j <= n; j += i) {
+                A(j - 1) = 0;
+            }
+        }
+    }
+    return arma::find(A == 1) + 1; // Find indices of primes and adjust for 1-based indexing
+}
+')
+```
+
+
+## Question 2.4 {-}
+Compare the speed of execution of all of your functions for `n = 10000`.
+```{r}  
+n <- 10000
+
+system.time(sieveOfEratosthenes(n))
+system.time(sieveOfEratosthenesVec(n))
+system.time(sieve_eratosthenes_cpp(n))
+system.time(sieve_eratosthenes_arma(n))
+```
+
+Due to the time difference is not significant with `n = 10000`, we will increase the value of n to 100000000 to see the difference in time.
+```{r}  
+n <- 100000000
+
+system.time(sieveOfEratosthenes(n))
+system.time(sieveOfEratosthenesVec(n))
+system.time(sieve_eratosthenes_cpp(n))
+system.time(sieve_eratosthenes_arma(n))
+```
+
+Finally, we compared the speed of execution of all of our functions for `n = 100000000`, and we can see that the C++ functions are much faster than the R functions.
+
+
+
+
+
+
+

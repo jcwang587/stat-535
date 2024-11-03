@@ -1,0 +1,105 @@
+---
+title: "final_proj"
+author: "Zhangqi Duan"
+date: "2023-12-07"
+output: html_document
+---
+
+```{r}
+library(jsonlite)
+library(dplyr)
+```
+
+```{r}
+
+json_data <- fromJSON("/Users/zhangqiduan/Desktop/Stats535_Fianl_Proj/video_details.json")
+
+
+
+json_string <- paste(readLines("/Users/zhangqiduan/Desktop/Stats535_Fianl_Proj/video_details.json"), collapse = "")
+```
+
+
+
+```{r}
+search_query_regex <- "\"search_query\": \"([^\"]+)\""
+view_count_regex <- "\"viewCount\": \"(\\d+)\""
+like_count_regex <- "\"likeCount\": \"(\\d+)\""
+
+
+
+search_query_matches <- regmatches(json_string, gregexpr(search_query_regex, json_string, perl = TRUE))
+view_count_matches <- regmatches(json_string, gregexpr(view_count_regex, json_string, perl = TRUE))
+like_count_matches <- regmatches(json_string, gregexpr(like_count_regex, json_string, perl = TRUE))
+
+# Extracting the first match from each (assuming there's only one match per type in the string)
+search_query <- gsub(search_query_regex, "\\1", search_query_matches[[1]])
+view_count <- gsub(view_count_regex, "\\1", view_count_matches[[1]])
+like_count <- gsub(like_count_regex, "\\1", like_count_matches[[1]])
+
+
+
+```
+
+
+```{r}
+songs_df <- data.frame(
+  Song_Name = search_query,
+  View_Count = as.numeric(view_count),
+  Like_Count = as.numeric(like_count)
+)
+
+songs_df
+
+
+```
+```{r}
+
+write.csv(songs_df, "songs_data.csv", row.names = FALSE)
+```
+
+
+Monte Carlo Simulation Part
+```{r}
+library(ggplot2)
+data <- read.csv("compiled.csv")
+
+
+word_list <- unlist(strsplit(as.character(data$song), " "))
+word_freq <- sort(table(word_list), decreasing = TRUE)
+top_words <- head(word_freq, 10)
+
+barplot(top_words, las = 2, main = "Top 10 Most Common Words in Song Titles", 
+        xlab = "Words", ylab = "Frequency", col = "blue")
+```
+
+```{r}
+summary(data$View_Count)
+
+set.seed(123) # for reproducibility
+n_simulations <- 10000
+simulated_slopes <- numeric(n_simulations)
+
+
+for(i in 1:n_simulations){
+  y_synthetic <- data$View_Count + rnorm(nrow(data), mean = 0, sd = sd(data$View_Count))
+  
+  model <- lm(y_synthetic ~ title_times, data = data)
+  
+  simulated_slopes[i] <- coef(model)["title_times"]
+}
+
+mean_slope <- mean(simulated_slopes)
+std_slope <- sd(simulated_slopes)
+```
+
+
+
+```{r}
+ggplot(data.frame(Slope = simulated_slopes), aes(x = Slope)) +
+  geom_histogram(bins = 30, fill = "blue", alpha = 0.7, aes(y = ..density..)) +
+  geom_density(color = "red") +
+  labs(title = "Distribution of Slopes from Monte Carlo Simulations",
+       x = "Slope", y = "Frequency")
+
+```

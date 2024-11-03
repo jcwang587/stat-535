@@ -1,0 +1,480 @@
+---
+title: 'Lab/HW 7: Optimization'
+author: 'Name: Jiacheng Wang'
+date: November 2023
+output: 
+  html_document:
+    toc: TRUE
+number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Part I {-}
+
+## 1.1 {-}
+The data is contained in a data frame called cats, in the R package MASS. This records the sex
+of each cat, its weight in kilograms, and the weight of its heart in grams. Run summary(cats) and
+explain the results.
+```{r}
+library(MASS)
+summary(cats)
+```
+
+1. **Sex**:
+- There are two levels in the Sex variable, which are "F" (Female) and "M" (Male).
+- The data set contains records for 47 female cats (F:47) and 97 male cats (M:97).
+
+2. **Bwt (Body Weight in kilograms)**:
+- Min.: The smallest weight of a cat in the dataset is 2.000 kilograms.
+- 1st Qu.: This is the first quartile (or the 25th percentile), which means 25% of cats weigh 2.300 kilograms or less.
+- Median: Half of the cats weigh 2.700 kilograms or less, and the other half weigh more than 2.700 kilograms. This is the 50th percentile.
+- Mean: The average weight of all the cats in the dataset is 2.724 kilograms.
+- 3rd Qu.: The third quartile (or the 75th percentile) indicates that 75% of the cats weigh 3.025 kilograms or less.
+- Max.: The heaviest cat in the dataset weighs 3.900 kilograms.
+
+3. **Hwt (Heart Weight in grams)**:
+- Min.: The smallest heart weight of a cat in the dataset is 6.30 grams.
+- 1st Qu.: 25% of cats have a heart weight of 8.95 grams or less.
+- Median: Half of the cats have a heart weight of 10.10 grams or less, and the other half have a heart weight more than 10.10 grams.
+- Mean: The average heart weight of all the cats in the dataset is 10.63 grams.
+- 3rd Qu.: 75% of the cats have a heart weight of 12.12 grams or less.
+- Max.: The cat with the heaviest heart in the dataset has a heart weight of 20.50 grams.
+
+## 1.2 {-}
+Plot a histogram (normalized to a density) of the heart weights. Add a vertical line with your calculated mean for base graphics.
+```{r}
+hist(cats$Hwt, probability = TRUE, main = "Histogram of Heart Weights", xlab = "Heart Weight (grams)")
+abline(v = mean(cats$Hwt), col = "red", lwd = 2)
+```
+
+## 1.3 {-}
+Write a function that takes mean and variance as inputs and returns a and s, assuming that the
+mean and variance came from a random sample from a gamma distribution.
+```{r}
+gamma_params <- function(mean, variance) {
+  a <- mean * mean / variance
+  s <- variance / mean
+  return(list(a = a, s = s))
+}
+```
+
+## 1.4 {-}
+1. Using R's functions, the statistical properties of the heart weights in the cats dataset from the MASS package were calculated as follows:
+- Mean of Heart Weights: The average heart weight across the cats is approximately 10.63056 grams.
+- Standard Deviation of Heart Weights: The heart weights vary with a standard deviation of about 2.434636 grams.
+- Variance of Heart Weights: The squared variation, or variance, of the heart weights is approximately 5.927451 (grams^2).
+
+2. Utilizing the gamma_params function to infer parameters for a gamma distribution based on the mean and variance:
+- Shape Parameter (a): The estimated shape parameter for the gamma distribution is about 19.06531.
+- Scale Parameter (s): The corresponding scale parameter is approximately 0.5575862.
+
+```{r}
+mean_val <- mean(cats$Hwt)
+sd_val <- sd(cats$Hwt)
+variance_val <- var(cats$Hwt)
+
+cat("Mean of Heart Weights:", mean_val, "\n")
+cat("Standard Deviation of Heart Weights:", sd_val, "\n")
+cat("Variance of Heart Weights:", variance_val, "\n")
+
+params <- gamma_params(mean_val, variance_val)
+print(params)
+```
+
+## 1.5 {-}
+Write a function, `cat_stats()`, which takes as input a vector of numbers and returns four estimates: mean, variance, a and s.
+```{r}
+cat_stats <- function(data) {
+  mean_val <- mean(data)
+  variance_val <- var(data)
+  params <- gamma_params(mean_val, variance_val)
+  return(list(mean = mean_val, variance = variance_val, a = params$a, s = params$s))
+}
+```
+
+## 1.6 {-}
+Estimate the a and s separately for all the male cats and all the female cats. 
+
+1. For the heart weights of male cats:
+- Shape Parameter (a): For a gamma distribution fitting the data of male cats, the estimated shape parameter a is about 19.83576.
+- Scale Parameter (s): The corresponding scale parameter s for the male cats is approximately 0.5708216.
+
+2. For the heart weights of female cats:
+- Shape Parameter (a): For a gamma distribution fitting the data of female cats, the estimated shape parameter a is about 45.93998.
+- Scale Parameter (s): The corresponding scale parameter s for the female cats is approximately 0.2003076.
+
+```{r}
+male_stats <- cat_stats(cats$Hwt[cats$Sex == "M"])
+female_stats <- cat_stats(cats$Hwt[cats$Sex == "F"])
+print("Statistics for Male Cats:")
+print(male_stats)
+print("\nStatistics for Female Cats:")
+print(female_stats)
+```
+
+## 1.7 {-}
+Produce a histogram for the female cats. On top of this, add the shape of the gamma pdf using curve() with its first argument as dgamma() (alternatively, use ggplot and stat_function). Is this distribution consistent with the empirical probability density of the histogram?
+```{r}
+hist(cats$Hwt[cats$Sex == "F"], probability = TRUE, main = "Histogram of Female Cat Heart Weights", xlab = "Heart Weight (grams)")
+curve(dgamma(x, shape = female_stats$a, scale = female_stats$s), add = TRUE, col = "blue", lwd = 2)
+```
+
+From the visual inspection of the plot, the blue gamma curve seems to fit quite well with the shape of the histogram bars, especially in the peak region (around 10 grams). The left tail (weights less than 8 grams) and the right tail (weights greater than 12 grams) of the histogram seem to have fewer observations than what the gamma curve suggests.
+
+Overall, while the gamma distribution does seem to capture the general shape of the data, there are some discrepancies, especially in the tails.
+
+## 1.8 {-}
+Repeat the previous step for male cats. How do the distributions compare?
+```{r}
+hist(cats$Hwt[cats$Sex == "M"], probability = TRUE, main = "Histogram of Male Cat Heart Weights", xlab = "Heart Weight (grams)")
+curve(dgamma(x, shape = male_stats$a, scale = male_stats$s), add = TRUE, col = "blue", lwd = 2)
+```
+
+Comparison between Male and Female Cat Heart Weight Distributions:
+
+- Center and Spread: The male cats' heart weights appear to be centered around a higher value compared to female cats, suggesting that male cats generally have heavier hearts. The spread (or variability) also seems wider for male cats.
+
+- Gamma Fit: For both genders, the gamma distribution captures the general trend of the data, though there are discrepancies in the tails for both plots.
+
+- Density Values: The peak densities are different; female cats peak around 0.30 while male cats peak around 0.12. However, this might be due to differences in bin widths or sample sizes between the two histograms.
+
+In conclusion, male cats seem to have a different distribution of heart weights compared to female cats, with a general trend of heavier hearts. The gamma distribution, while capturing the general trend, might benefit from parameter adjustments or considering other distributions to improve fit, especially in the tails of the distribution.
+
+# Part II {-}
+
+## 2.1 {-}
+Calculate the log-likelihood of the shape and scale parameters you estimated, using the method of moments in Part I. The answer, rounded to the nearest integer is -326.
+```{r}
+log_likelihood <- function(data, shape, scale) {
+  sum(log(dgamma(data, shape = shape, scale = scale)))
+}
+log_likelihood_val <- log_likelihood(cats$Hwt, params$a, params$s)
+rounded_log_likelihood_val <- round(log_likelihood_val)
+print(log_likelihood_val)
+print(rounded_log_likelihood_val)
+```
+
+## 2.2 {-}
+Write a function, `gamma_log_lik`, which takes in three inputs: `dat` - a numeric vector, a `shape` and a `scale` parameter (in that order), and returns the log-likelihood of the vector for the gamma distribution with the input shape and scale parameters. 
+```{r}
+gamma_log_lik <- function(dat, shape, scale) {
+  sum(log(dgamma(dat, shape = shape, scale = scale)))
+}
+```
+
+Check that when running `gamma_loglike` with the heart weight data for cats and the estimates from Part I, the log-likelihood matches the value obtained in question 1, confirming the accuracy of the function.
+```{r}
+log_lik_val <- gamma_log_lik(cats$Hwt, params$a, params$s)
+print(log_lik_val)
+```
+
+## 2.3 {-}
+Using curve(), make two plots of the log-likelihood. In the first, vary the shape parameter over the range 1 to 40, while holding the scale parameter fixed at the value estimated in Part I.
+```{r}
+log_lik_shape <- function(x) {
+  sapply(x, function(shape) gamma_log_lik(cats$Hwt, shape, params$s))
+}
+
+curve(log_lik_shape, from = 1, to = 40, main = "Log-likelihood vs Shape", xlab = "Shape", ylab = "Log-likelihood")
+```
+
+In the second, vary the scale parameter over the range 0.2 to 2, holding shape fixed at the estimated value.
+```{r}
+log_lik_scale <- function(x) {
+  sapply(x, function(scale) gamma_log_lik(cats$Hwt, params$a, scale))
+}
+
+curve(log_lik_scale, from = 0.2, to = 2, main = "Log-likelihood vs Scale", xlab = "Scale", ylab = "Log-likelihood")
+```
+
+Find the maximum likelihood estimates for the shape and scale parameters.
+```{r}
+shape_values <- seq(1, 40, by = 0.1)
+log_lik_values_shape <- log_lik_shape(shape_values)
+
+# For shape
+max_shape_index = which(log_lik_values_shape == max(log_lik_values_shape))
+max_shape_value = shape_values[max_shape_index]
+
+scale_values <- seq(0.2, 2, by = 0.01)
+log_lik_values_scale <- log_lik_scale(scale_values)
+
+# For scale
+max_scale_index = which(log_lik_values_scale == max(log_lik_values_scale))
+max_scale_value = scale_values[max_scale_index]
+
+print(paste("Maxima for shape: ", max_shape_value))
+print(paste("Maxima for scale: ", max_scale_value))
+
+```
+- At what values of the parameters do the two curves peak?
+
+For the shape parameter, the curve peaks at a value of 19.1. For the scale parameter, the curve peaks at a value of 0.56. 
+
+- How do they compare to your estimates from Part I Q4?
+
+From Part I Q4, the estimated shape parameter for the gamma distribution is about 19.06531, which is very close to the peak value of 19.1 found in the curve plot. Similarly, the estimated scale parameter from Part I Q4 is 0.5575862, which is also close to the peak value of 0.56 from the curve plot.
+
+- Are the two maxima equal?
+
+No, the two maxima are not precisely equal, but they are very close to each other. This is expected since the curve plots give a visual representation of the parameter values, and small discrepancies can arise based on the granularity of the values used in the plots.
+
+- Should they be?
+Ideally, both methods should give the same result since they aim to find the best fit for the data. However, in practice, small differences can arise due to the specific steps we take in each method. The results from both methods are very close, which means they are both giving a good estimate for the dataset.
+
+## 2.4 {-}
+Create a new function, `gamma_cats` which admits only the shape and scale parameters, and applies `gamma_log_lik` to the heart weight data.
+```{r}
+gamma_cats <- function(shape, scale) {
+  gamma_log_lik(cats$Hwt, shape, scale)
+}
+```
+
+Make a contour plot of the log-likelihood, with the shape parameter on the horizontal axis (range 1 to 40) and the scale parameter on the vertical (range 0.3 to 2). Add a point indicating the location of your moment-based estimate from question 1. Also, increase the number of levels on the contour plot to be 20, which is above the default of 10.
+```{r}
+# Create sequences of shape and scale values
+shape_vals <- seq(1, 40, length.out = 100)
+scale_vals <- seq(0.3, 2, length.out = 100)
+
+# Use outer to create a matrix of log-likelihood values
+z <- outer(shape_vals, scale_vals, Vectorize(gamma_cats))
+
+# Plot the contour map
+contour(shape_vals, scale_vals, z, nlevels = 20)
+
+# Add a point for the moment-based estimates
+points(params$a, params$s, col = "red", pch = 19)
+```
+
+## Extra credit {-}
+Tweak the contour plot so that the levels demonstrate the location of the maximum better, add a label with the value at the maximum log-likelihood and lines that indicate the levels of the maximizing parameters. The contour plot is exactly the same as expected.
+```{r}
+# Specify the custom contour levels
+custom_levels <- c(-6400, -6000, -5600, -5200, -4800, -4400, -4000, -3600, -3200, -2800, -2400, -2000, -1600, -1200, -800, -426, -400, -386, -346)
+
+# Plot the contour map with custom levels
+contour(shape_vals, scale_vals, z, levels = custom_levels)
+
+# Add a point for the moment-based estimates
+points(params$a, params$s, col = "red", pch = 19)
+
+# Draw segments indicating the levels of the moment-based parameters
+segments(x0 = min(shape_vals), y0 = params$s, x1 = params$a, y1 = params$s, col = "red", lty = 2)
+segments(x0 = params$a, y0 = min(scale_vals), x1 = params$a, y1 = params$s, col = "red", lty = 2)
+
+# Calculate the maximum log-likelihood value for labeling
+max_log_lik <- sprintf("%.1f", log_likelihood(cats$Hwt, params$a, params$s))
+
+# Add a label for the moment-based estimates
+text(params$a, params$s, labels = max_log_lik, pos = 4, cex = 1.2, col = "red")
+```
+
+## Extra credit {-}
+Rewrite the contour function you choose to work with so that it utilizes `ggplot` with `geom_contour``.
+```{r}
+library(ggplot2)
+
+# Convert the matrix of log-likelihood values into a long format data frame
+df <- expand.grid(shape = shape_vals, scale = scale_vals)
+df$log_lik <- c(z)
+
+# Plot using ggplot and geom_contour with custom levels
+ggplot(df, aes(x = shape, y = scale, z = log_lik)) +
+  geom_contour(color = "black", breaks = custom_levels) +
+  geom_point(aes(x = params$a, y = params$s), color = "red", size = 2.5) +
+  geom_segment(aes(x = min(shape_vals), y = params$s, xend = params$a, yend = params$s), color = "red", linetype = "dashed") +
+  geom_segment(aes(x = params$a, y = min(scale_vals), xend = params$a, yend = params$s), color = "red", linetype = "dashed") +
+  geom_text(aes(x = params$a, y = params$s, label = max_log_lik), hjust = -0.15, vjust = 0.5, color = "red", size = 5) +
+  theme_minimal()
+```
+
+## 2.5 {-}
+Yes, both the curves from problem 3 and the contour plot from problem 4 provide consistent visual representations of the log-likelihood function with respect to the shape and scale parameters. The maxima obtained from the curves align well with the regions of highest likelihood in the contour plot, confirming their compatibility.
+
+1. Location of Maximum Likelihood Estimates (MLEs):
+
+- From problem 3, we determined the maxima for shape and scale to be approximately 19.1 and 0.56, respectively.
+- In the contour plot from problem 4, the red point (representing the moment-based estimates) is located near these values. The contour lines around this point represent regions of similar log-likelihood values, and as we move towards the red point, the log-likelihood values increase, indicating that this point is near the maximum likelihood region.
+
+2. Shape of the Contour Lines:
+- The contour lines in the plot represent regions of constant log-likelihood. The regions where the curves in problem 3 are steepest just correspond to areas in the contour plot where the contour lines are closest together. This is observed in the contour plot around the maximum likelihood region and the value of scale parameter less than 1.0.
+
+## 2.6 {-}
+Use the plot from the previous question to locate the region where the likelihood seems to be largest. Make a new plot which zooms in on this region by changing the ranges over which the shape and scale vary.
+```{r}
+# Adjust the range of shape_vals and scale_vals to zoom in on the region of interest
+shape_vals_zoom <- seq(params$a - 10, params$a + 10, length.out = 100)
+scale_vals_zoom <- seq(params$s - 0.5, params$s + 0.5, length.out = 100)
+
+# Recalculate the matrix z using the new ranges
+z_zoom <- outer(shape_vals_zoom, scale_vals_zoom, Vectorize(gamma_cats))
+
+# Plot the zoomed-in contour map with custom levels
+contour(shape_vals_zoom, scale_vals_zoom, z_zoom, levels = custom_levels)
+
+# Add a point for the moment-based estimates
+points(params$a, params$s, col = "red", pch = 19)
+
+# Draw segments indicating the levels of the moment-based parameters
+segments(x0 = min(shape_vals_zoom), y0 = params$s, x1 = params$a, y1 = params$s, col = "red", lty = 2)
+segments(x0 = params$a, y0 = min(scale_vals_zoom), x1 = params$a, y1 = params$s, col = "red", lty = 2)
+
+# Add a label for the moment-based estimates with one decimal place, larger font, and red color, positioned to the right of the point
+text(params$a, params$s, labels = sprintf("%.1f", log_likelihood(cats$Hwt, params$a, params$s)), pos = 4, cex = 1.2, col = "red", offset = 0.5)
+```
+
+# Part III {-}
+## 3.1 {-}
+Review Part II. Fit a gamma distribution to the cats’ heart weights by maximum likelihood using `optim()`.
+```{r}
+library(numDeriv)
+
+# Negative log-likelihood function
+nll_gamma <- function(params, data) {
+  shape <- params[1]
+  scale <- params[2]
+  -sum(log(dgamma(data, shape = shape, scale = scale)))
+}
+
+# Initial values
+start_params <- c(params$a, params$s)
+
+# Use optim to find MLE
+result_optim <- optim(par = start_params, fn = nll_gamma, data = cats$Hwt, method = "BFGS")
+
+# Extract the MLEs
+mle_shape <- result_optim$par[1]
+mle_scale <- result_optim$par[2]
+
+# Compute the log-likelihood for MLEs from optim
+log_likelihood_optim <- -nll_gamma(c(mle_shape, mle_scale), cats$Hwt)
+
+print(paste("Log-Likelihood using optim: ", log_likelihood_optim))
+print(paste("MLE for shape (using optim): ", mle_shape))
+print(paste("MLE for scale (using optim): ", mle_scale))
+```
+
+Given the small gradient values, it suggests that the MLEs obtained are close to the actual maximas.
+```{r}
+# Compute the gradient at the MLEs
+gradient_at_mle <- grad(func = function(params) nll_gamma(params, cats$Hwt), x = c(mle_shape, mle_scale))
+
+# Print the gradient values
+print(paste("Gradient for Shape using optim: ", gradient_at_mle[1]))
+print(paste("Gradient for Scale using optim: ", gradient_at_mle[2]))
+```
+
+- The log-likelihood value from the `optim()` method is closer to 0 than the method of moments, which suggests a better fit.
+
+## 3.2 {-}
+Defining the Gradient Function from class.
+```{r}
+gradient_descent <- function(f, theta0, step_scale, stopping_deriv, max_iter, ...) {
+  theta <- theta0
+  for (i in 1:max_iter) {
+    gradient <- numDeriv::grad(f, theta, ...)
+    if(all(abs(gradient) < stopping_deriv)) {
+      break()
+    }
+    theta <- theta - step_scale * gradient
+  }
+  if (i == max_iter) {
+    warning("Maximal number of iterations reached, convergence not assured")
+  }
+  fit <- 
+    list(
+      argmin = theta,
+      final_gradient = gradient,
+      final_value = f(theta, ...),
+      iterations = i,
+      theta0 = theta0,
+      step_scale = step_scale,
+      stopping_deriv = stopping_deriv
+      )
+  return(fit)
+}
+```
+
+Using the negative log-likelihood function specific for gradient descent, and initial values derived from the `optim` function:
+```{r}
+nll_vector_form <- function(theta, data) {
+  shape <- theta[1]
+  scale <- theta[2]
+  -sum(log(dgamma(data, shape = shape, scale = scale)))
+}
+# Setting up data and initial values
+data <- cats$Hwt
+theta0 <- c(mle_shape, mle_scale) 
+
+# Gradient Descent parameters
+step_scale <- 0.0001
+stopping_deriv <- 1e-6
+max_iter <- 1000
+
+# Gradient Descent application
+fit <- gradient_descent(f = function(theta) nll_vector_form(theta, data), 
+                        theta0 = theta0, 
+                        step_scale = step_scale, 
+                        stopping_deriv = stopping_deriv, 
+                        max_iter = max_iter)
+
+# Extract results
+mle_shape_gd <- fit$argmin[1]
+mle_scale_gd <- fit$argmin[2]
+
+# Compute the log-likelihood for MLEs from gradient descent
+log_likelihood_gd <- -nll_vector_form(c(mle_shape_gd, mle_scale_gd), cats$Hwt)
+
+print(paste("Log-Likelihood using gradient descent: ", log_likelihood_gd))
+print(paste("Gradient Descent (Class function) MLE for shape: ", mle_shape_gd))
+print(paste("Gradient Descent (Class function) MLE for scale: ", mle_scale_gd))
+```
+
+1. Compared to Method of Moments Estimates:
+
+- The log-likelihood value from the gradient descent method is closer to 0 than the method of moments, which suggests a better fit.
+
+2. Compared to optim:
+- The log-likelihood values from the gradient descent and optim methods are virtually the same, but there's a minor difference.
+
+## Extra Credit {-}
+Create a dense grid of shape and scale values around the estimates. The dense grid search around the initial estimates did not yield improved results. The optimal values identified from the grid search coincide with the values obtained previously.
+```{r}
+# Adjusted log-likelihood function to return positive value
+log_likelihood_gd <- function(theta) {
+  shape <- theta[1]
+  scale <- theta[2]
+  sum(log(dgamma(cats$Hwt, shape = shape, scale = scale)))
+}
+
+# Define a range around the estimates for shape and scale
+shape_range <- seq(mle_shape_gd - 1, mle_shape_gd + 1, by = 0.0005)
+scale_range <- seq(mle_scale_gd - 0.075, mle_scale_gd + 0.075, by = 0.0005)
+
+# Initialize variables to store the best log-likelihood and corresponding parameters
+best_log_lik <- -Inf
+best_shape <- NA
+best_scale <- NA
+
+# Loop through the grid and evaluate the log-likelihood for each combination
+for (shape in shape_range) {
+  for (scale in scale_range) {
+    current_log_lik <- log_likelihood_gd(c(shape, scale))
+    if (current_log_lik > best_log_lik) {
+      best_log_lik <- current_log_lik
+      best_shape <- shape
+      best_scale <- scale
+    }
+  }
+}
+
+# Print the results
+print(paste("Best log-likelihood: ", best_log_lik))
+print(paste("Best shape: ", best_shape))
+print(paste("Best scale: ", best_scale))
+```
+
+

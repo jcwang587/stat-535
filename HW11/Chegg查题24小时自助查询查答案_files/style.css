@@ -1,0 +1,38 @@
+body{background: #F5F5F5;}
+.fr{float: right;}
+.fl{float: left;}
+.flex{display: flex; align-items: center;}
+.flex1{flex: 1;}
+.herder{background: #7859F6; font-size: 16px;}
+.topNav{height: 70px; width: 1200px; margin: 0 auto;}
+.topNav .logo{margin-right: 100px;}
+.topNav li{display: inline-block; width: 150px;}
+.topNav a{color: #FFFFFF !important; text-decoration: none;}
+.kefu{position: relative;}
+.kefu .codeBox{position: absolute; display: none; margin-top: 10px; background: #FFFFFF; text-align: center; z-index: 1;}
+.kefu .codeBox img{width: 180px; height: 180px;}
+.kefu .codeBox p{color: #333;}
+.kefu:hover .codeBox{display: block;}
+
+.container{}
+.content{display: flex; flex-direction: column; align-items: center;  padding: 50px 0 100px;}
+.content .title{font-weight: bold; font-size: 32px; margin-bottom: 20px;}
+.content .subtitle{font-size: 16px; margin-bottom: 20px;}
+.content .inp{width: 720px; height: 36px;border-radius: 4px;  margin-bottom: 20px; padding-left: 10px; font-size: 16px}
+.content .inp::-webkit-input-placeholder{color: red;}
+.content .submit{background: #FFFFFF; color: #7859F6; line-height: 36px; padding: 0 60px; border-radius: 4px; cursor: pointer; font-size: 16px;}
+.wxkefu{position: absolute; left: 50%; transform: translateX(-50%); padding: 20px 50px; background: #FFFFFF; border-radius: 20px 20px 0 0;bottom: -120px;}
+.wxkefu img{width: 360px; height: 120px; border-radius: 4px;}
+
+
+.userProtcl{ margin:20px;}
+.userProtcl h1{ border-bottom:1px dashed #cccccc; font-size:16px; line-height:24px; padding:5px 0; margin-bottom:20px; font-weight:normal;}
+.userProtcl h3{ font-size:18px; line-height:30px; margin:20px 0 10px; font-weight:normal;}
+.userProtcl p{ font-size:14px; line-height:24px; margin-bottom:10px; color:#666666;}
+
+/*页面跳转错误页面*/
+.czts { width:70%; border:2px solid #7859F6; border-radius:8px; margin:30px auto; padding:30px 0; text-align:center;}
+.czts .weui-icon_msg{ font-size: 60px; width: 100px; height: 100px;}
+.czts_p { font-family: "微软雅黑"; font-size: 13px; line-height: 30px; color: #1a1a1a;}
+.czts .big{ font-size:18px; margin-top:10px;}
+.czts_time { color: #F00;}
